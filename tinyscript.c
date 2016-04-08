@@ -200,7 +200,7 @@ NextToken()
         r = c;
     }
 #if 0
-    printf("Token[%c] = ", c);
+    printf("Token[%c] = ", r);
     PrintString(token);
     printf("\n");
 #endif
@@ -243,6 +243,38 @@ StringToNum(String s)
     return r;
 }
 
+// look up a symbol by name
+Sym *
+LookupSym(String name)
+{
+    Sym *s;
+    int n;
+
+    n = symptr;
+    while (n > 0) {
+        --n;
+        s = &symstack[n];
+        if (stringeq(s->name, name)) {
+            return s;
+        }
+    }
+    return NULL;
+}
+// define a symbol
+Sym *
+DefineSym(String name)
+{
+    Sym *s;
+    if (symptr == SYMSTACK_SIZE) {
+        printf("too many symbols\n");
+        return NULL;
+    }
+    s = &symstack[symptr++];
+    s->name = name;
+    s->value = 0;
+    return s;
+}
+
 extern int ParseExpr();
 
 // parse a value; for now, just a number
@@ -267,6 +299,12 @@ ParseVal()
         return 0;
     } else if (c == TOK_NUMBER) {
         Push(StringToNum(token));
+        NextToken();
+        return 1;
+    } else if (c == TOK_SYMBOL) {
+        Sym *sym = LookupSym(token);
+        if (!sym) return 0;
+        Push(sym->value);
         NextToken();
         return 1;
     } else {
@@ -343,7 +381,60 @@ ParseSimpleExpr()
 int
 ParseExpr()
 {
-    return ParseSimpleExpr();
+    int negflag = 0;
+    Val r;
+    if (curToken == '-') {
+        negflag = 1;
+        NextToken();
+    }
+    if (ParseSimpleExpr()) {
+        if (negflag) {
+            Push(-Pop());
+        }
+        return 1;
+    }
+    return 0;
+}
+
+static int saveStrings;
+
+int
+ParseStmt()
+{
+    int c;
+    String name;
+    Val val;
+
+    saveStrings = 0;
+    c = NextToken();
+    if (c == TOK_SYMBOL) {
+        // is this a=expr?
+        Sym *s;
+        name = token;
+        c = NextToken();
+        if (c != '=') return 0;
+        NextToken();
+        if (!ParseExpr()) {
+            return 0;
+        }
+        val = Pop();
+        s = LookupSym(name);
+        if (!s) {
+            s = DefineSym(name);
+            if (!s) {
+                return 0;
+            }
+            saveStrings = 1;
+        }
+        s->value = val;
+    } else {
+        if (!ParseExpr()) {
+            return 0;
+        }
+        val = Pop();
+    }
+    printf("%d\n", val);
+    return 1;
 }
 
 String
@@ -362,6 +453,7 @@ HeapPutCstring(char *str)
         *dst++ = (Byte)*str++;
     }
     x.len = len;
+    heapptr += len;
     return x;
 }
 
@@ -380,14 +472,12 @@ REPL()
         *s = 0;
         heapsave = heapptr;
         pc = HeapPutCstring(buf);
-        NextToken();
-        if (!ParseExpr()) {
+        if (!ParseStmt()) {
             printf("?parse err\n");
-        } else {
-            Val x = Pop();
-            printf("%d\n", x);
         }
-        heapptr = heapsave;
+        if (!saveStrings) {
+            heapptr = heapsave;
+        }
     }
 }
 
@@ -397,3 +487,4 @@ main()
     REPL();
     return 0;
 }
+
