@@ -72,28 +72,140 @@ Val stringeq(String ai, String bi)
     return 1;
 }
 
+String pc;  // instruction pointer
+
+//
+// Utility function
+//
+int
+PrintString(String s)
+{
+    int len = s.len;
+    Byte *ptr = &heap[s.ptr];
+    while (len > 0) {
+        putchar(*ptr);
+        ptr++;
+        --len;
+    }
+}
+
 //
 // parse an expression or statement
 //
-String pc;  // instruction pointer
 
+#define TOK_SYMBOL 'A'
+#define TOK_NUMBER 'N'
+#define TOK_STRING 'S'
+
+// fetch the next token
+int curToken;
+String token;
+Val val;
+
+static void ResetToken()
+{
+    token.len = 0;
+    token.ptr = pc.ptr;
+}
+
+//
 // get next character from the program counter
 // returns -1 on end of file
 int
-PeekNext()
+GetChar()
 {
+    int c;
     if (pc.len == 0)
         return -1;
-    return heap[pc.ptr];
+    c = heap[pc.ptr];
+    pc.ptr++;
+    pc.len--;
+    token.len++;
+    return c;
 }
 
-// move to next character
+//
+// undo last getchar
+// (except at end of input)
+//
 void
-NextChar()
+UngetChar()
 {
-    if (pc.len == 0) return;
-    pc.len--;
-    pc.ptr++;
+    if (1) {
+        pc.len++;
+        pc.ptr--;
+        token.len--;
+    }
+}
+
+int isspace(int c)
+{
+    return (c == ' ' || c == '\t');
+}
+
+int isdigit(int c)
+{
+    return (c >= '0' && c <= '9');
+}
+int islower(int c)
+{
+    return (c >= 'a' && c <= 'z');
+}
+int isalpha(int c)
+{
+    return islower(c) || ((c >= 'A' && c <= 'Z'));
+}
+
+void
+GetSpan(int (*testfn)(int))
+{
+    int c;
+    do {
+        c = GetChar();
+    } while (testfn(c));
+    if (c != -1) {
+        UngetChar();
+    }
+}
+
+int
+NextToken()
+{
+    int c;
+    int r = -1;
+    
+    ResetToken();
+    for(;;) {
+        c = GetChar();
+        if (isspace(c)) {
+            ResetToken();
+        } else {
+            break;
+        }
+    }
+
+    if (c == '#') {
+        // comment
+        do {
+            c = GetChar();
+        } while (c >= 0 && c != '\n');
+        r = c;
+    } else if (isdigit(c)) {
+        GetSpan(isdigit);
+        r = TOK_NUMBER;
+    } else if ( isalpha(c) ) {
+        GetSpan(isalpha);
+        r = TOK_SYMBOL;
+    } else {
+        r = c;
+    }
+#if 0
+    printf("Token[%c] = ", c);
+    PrintString(token);
+    printf("\n");
+#endif
+    curToken = r;
+    return r;
 }
 
 // push a number on the result stack
@@ -115,47 +227,51 @@ Pop()
     return r;
 }
 
-// parse a number; put the result on the stack
-int
-ParseNum()
+// convert a string to a number
+Val
+StringToNum(String s)
 {
     Val r = 0;
     int c;
-    int valid = 0;
-    for(;;) {
-        c = PeekNext();
-        if (c < '0' || c > '9') break;
+    Byte *ptr = &heap[s.ptr];
+    int len = s.len;
+    while (len-- > 0) {
+        c = *ptr++;
+        if (!isdigit(c)) break;
         r = 10*r + (c-'0');
-        valid = 1;
-        NextChar();
     }
-    if (valid)
-        Push(r);
-    return valid;
+    return r;
 }
 
 extern int ParseExpr();
 
 // parse a value; for now, just a number
+// returns 1 if valid, 0 if syntax error
+
 int
 ParseVal()
 {
     int c;
     int valid;
-    c = PeekNext();
+    c = curToken;
     if (c == '(') {
-        NextChar();
+        NextToken();
         valid = ParseExpr();
         if (valid) {
-            c = PeekNext();
+            c = curToken;
             if (c == ')') {
-                NextChar();
+                NextToken();
                 return 1;
             }
         }
         return 0;
+    } else if (c == TOK_NUMBER) {
+        Push(StringToNum(token));
+        NextToken();
+        return 1;
+    } else {
+        return 0;
     }
-    return ParseNum();
 }
 
 // perform an operation
@@ -191,16 +307,16 @@ ParseTerm()
     int c;
     valid = ParseVal();
     if (!valid) return valid;
-    c = PeekNext();
+    c = curToken;
     while (c == '*' || c == '/') {
-        NextChar();
+        NextToken();
         valid = ParseVal();
         if (!valid) {
             Pop();
             return valid;
         }
         BinaryOperator(c);
-        c = PeekNext();
+        c = curToken;
     }
     return 1;
 }
@@ -211,16 +327,16 @@ ParseSimpleExpr()
     int c;
     valid = ParseTerm();
     if (!valid) return valid;
-    c = PeekNext();
+    c = curToken;
     while (c == '+' || c == '-') {
-        NextChar();
+        NextToken();
         valid = ParseTerm();
         if (!valid) {
             Pop();
             return valid;
         }
         BinaryOperator(c);
-        c = PeekNext();
+        c = curToken;
     }
     return 1;
 }
@@ -229,6 +345,7 @@ ParseExpr()
 {
     return ParseSimpleExpr();
 }
+
 String
 HeapPutCstring(char *str)
 {
@@ -247,7 +364,7 @@ HeapPutCstring(char *str)
     x.len = len;
     return x;
 }
-       
+
 void
 REPL()
 {
@@ -263,6 +380,7 @@ REPL()
         *s = 0;
         heapsave = heapptr;
         pc = HeapPutCstring(buf);
+        NextToken();
         if (!ParseExpr()) {
             printf("?parse err\n");
         } else {
