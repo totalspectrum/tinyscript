@@ -192,7 +192,7 @@ ParseTerm()
     valid = ParseVal();
     if (!valid) return valid;
     c = PeekNext();
-    if (c == '*' || c == '/') {
+    while (c == '*' || c == '/') {
         NextChar();
         valid = ParseVal();
         if (!valid) {
@@ -200,6 +200,7 @@ ParseTerm()
             return valid;
         }
         BinaryOperator(c);
+        c = PeekNext();
     }
     return 1;
 }
@@ -211,7 +212,7 @@ ParseSimpleExpr()
     valid = ParseTerm();
     if (!valid) return valid;
     c = PeekNext();
-    if (c == '+' || c == '-') {
+    while (c == '+' || c == '-') {
         NextChar();
         valid = ParseTerm();
         if (!valid) {
@@ -219,6 +220,7 @@ ParseSimpleExpr()
             return valid;
         }
         BinaryOperator(c);
+        c = PeekNext();
     }
     return 1;
 }
