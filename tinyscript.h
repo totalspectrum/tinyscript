@@ -30,24 +30,20 @@ typedef struct {
 } String;
 
 // symbols can take the following forms:
-typedef enum {
-    INT,
-    STRING,
-    FUNCTION,  // scripting language func
-    TOKEN,     // language token
-    BUILTIN_0, // builtin func with no args
-    BUILTIN_1, // builtin func with 1 arg
-    BUILTIN_2, // builtin func with 2 args
-} Type;
+#define INT      0x0  // integer
+#define STRING   0x1  // string
+#define PROC     0x2  // scripting procedure
+#define TOKEN    0x3  // language token
+#define OPERATOR 0x4  // operator; precedence in high 8 bits
+#define BUILTIN  0x5  // builtin: number of operands in high 8 bits
 
-// a symbol should fit in 64 bits
-// 32 bits for the symbol value
-// 32 bits for the symbol name
+#define BINOP(x) (((x)<<8)+OPERATOR)
+#define CFUNC(x) (((x)<<8)+BUILTIN)
 
 typedef struct symbol {
     String name;
     Val    value;  // symbol value
-    Type   type;   // symbol type
+    int    type;   // symbol type
 } Sym;
 
 
