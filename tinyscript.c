@@ -499,6 +499,48 @@ DupString(String orig)
 int ParseString(String str, int saveStrings, int topLevel);
 
 //
+// this is slightly different in that it may return the non-erro TS_ERR_ELSE
+// to signify that the condition was false
+//
+int ParseIf()
+{
+    String ifpart, elsepart;
+    int haveelse = 0;
+    Val cond;
+    int c;
+    int err;
+    
+    c = NextToken();
+    err = ParseExpr();
+    if (err != TS_ERR_OK) {
+        return err;
+    }
+    cond = Pop();
+    c = curToken;
+    if (c != TOK_STRING) {
+        return TS_ERR_SYNTAX;
+    }
+    ifpart = token;
+    c = NextToken();
+    if (c == TOK_ELSE) {
+        c = NextToken();
+        if (c != TOK_STRING) {
+            return TS_ERR_SYNTAX;
+        }
+        elsepart = token;
+        haveelse = 1;
+        NextToken();
+    }
+    if (cond) {
+        err = ParseString(ifpart, 0, 0);
+    } else if (haveelse) {
+        err = ParseString(elsepart, 0, 0);
+    }
+    if (err == TS_ERR_OK && !cond) err = TS_ERR_OK_ELSE;
+    return err;
+}
+
+//
 // parse one statement
 // 1 is true if we need to save strings we encounter (we've been passed
 // a temporary string)
@@ -564,35 +606,21 @@ ParseStmt(int saveStrings)
             goto print_more;
         Newline();
     } else if (c == TOK_IF) {
-        String ifpart, elsepart;
-        int haveelse = 0;
-        Val cond;
-        c = NextToken();
-        err = ParseExpr();
-        if (err != TS_ERR_OK) {
-            return err;
+        err = ParseIf();
+        if (err == TS_ERR_OK_ELSE)
+            err = TS_ERR_OK;
+    } else if (c == TOK_WHILE) {
+        String savepc;
+        savepc = pc;
+    again:
+        err = ParseIf();
+        if (err == TS_ERR_OK_ELSE) {
+            return TS_ERR_OK;
+        } else if (err == TS_ERR_OK) {
+            pc = savepc;
+            goto again;
         }
-        cond = Pop();
-        c = curToken;
-        if (c != TOK_STRING) {
-            return TS_ERR_SYNTAX;
-        }
-        ifpart = token;
-        c = NextToken();
-        if (c == TOK_ELSE) {
-            c = NextToken();
-            if (c != TOK_STRING) {
-                return TS_ERR_SYNTAX;
-            }
-            elsepart = token;
-            haveelse = 1;
-            NextToken();
-        }
-        if (cond) {
-            ParseString(ifpart, 0, 0);
-        } else if (haveelse) {
-            ParseString(elsepart, 0, 0);
-        }
+        return err;
     } else {
         return TS_ERR_SYNTAX;
     }
@@ -642,26 +670,50 @@ static Val bitand(Val x, Val y) { return x&y; }
 static Val bitor(Val x, Val y) { return x|y; }
 static Val bitxor(Val x, Val y) { return x^y; }
 static Val equals(Val x, Val y) { return x==y; }
+static Val ne(Val x, Val y) { return x!=y; }
+static Val lt(Val x, Val y) { return x<y; }
+static Val le(Val x, Val y) { return x<=y; }
+static Val gt(Val x, Val y) { return x>y; }
+static Val ge(Val x, Val y) { return x>=y; }
+
+struct def {
+    const char *name;
+    int toktype;
+    intptr_t val;
+} defs[] = {
+    // keywords
+    { "if",    TOKEN, TOK_IF },
+    { "else",  TOKEN, TOK_ELSE },
+    { "while", TOKEN, TOK_WHILE },
+    { "print", TOKEN, TOK_PRINT },
+    { "var",   TOKEN, TOK_VARDEF },
+    { "proc",  TOKEN, TOK_FUNCDEF },
+    // operators
+    { "*",     BINOP(1), (intptr_t)prod },
+    { "/",     BINOP(1), (intptr_t)quot },
+    { "+",     BINOP(2), (intptr_t)sum },
+    { "-",     BINOP(2), (intptr_t)diff },
+    { "&",     BINOP(3), (intptr_t)bitand },
+    { "|",     BINOP(3), (intptr_t)bitor },
+    { "^",     BINOP(3), (intptr_t)bitxor },
+    { "=",     BINOP(4), (intptr_t)equals },
+    { "<>",     BINOP(4), (intptr_t)ne },
+    { "<",     BINOP(4), (intptr_t)lt },
+    { "<=",     BINOP(4), (intptr_t)le },
+    { ">",     BINOP(4), (intptr_t)gt },
+    { ">=",     BINOP(4), (intptr_t)ge },
+
+    { NULL, 0, 0 }
+};
 
 void
 TinyScript_Init(void)
 {
-    DefineCSym("if",    TOKEN, TOK_IF);
-    DefineCSym("else",  TOKEN, TOK_ELSE);
-    DefineCSym("while", TOKEN, TOK_WHILE);
-    DefineCSym("print", TOKEN, TOK_PRINT);
-    DefineCSym("var",   TOKEN, TOK_VARDEF);
-    DefineCSym("proc",  TOKEN, TOK_FUNCDEF);
+    int i;
 
-    // the various operators
-    DefineCSym("*", BINOP(1), (intptr_t)prod);
-    DefineCSym("/", BINOP(1), (intptr_t)quot);
-    DefineCSym("+", BINOP(2), (intptr_t)sum);
-    DefineCSym("-", BINOP(2), (intptr_t)diff);
-    DefineCSym("&", BINOP(3), (intptr_t)bitand);
-    DefineCSym("|", BINOP(3), (intptr_t)bitor);
-    DefineCSym("^", BINOP(3), (intptr_t)bitxor);
-    DefineCSym("=", BINOP(4), (intptr_t)equals);
+    for (i = 0; defs[i].name; i++) {
+        DefineCSym(defs[i].name, defs[i].toktype, defs[i].val);
+    }
 }
 
 int

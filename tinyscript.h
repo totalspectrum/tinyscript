@@ -10,7 +10,8 @@ enum {
     TS_ERR_OK = 0,
     TS_ERR_NOMEM = -1,
     TS_ERR_SYNTAX = -2,
-    TS_ERR_UNKNOWN_SYM = -3
+    TS_ERR_UNKNOWN_SYM = -3,
+    TS_ERR_OK_ELSE = 1, // special internal condition
 };
 
 // we use this a lot
