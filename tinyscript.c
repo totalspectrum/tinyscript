@@ -120,6 +120,7 @@ LookupSym(String name)
 #define TOK_NUMBER 'N'
 #define TOK_STRING 'S'
 #define TOK_IF     'i'
+#define TOK_ELSE   'e'
 #define TOK_WHILE  'w'
 #define TOK_PRINT  'p'
 #define TOK_VAR    'v'
@@ -495,6 +496,8 @@ DupString(String orig)
     return x;
 }
 
+int ParseString(String str);
+
 int
 ParseStmt()
 {
@@ -504,6 +507,7 @@ ParseStmt()
     int err;
     
     c = curToken;
+    
     if (c == TOK_VARDEF) {
         // a definition var a=x
         c=NextRawToken(); // we want to get VAR_SYMBOL directly
@@ -551,6 +555,36 @@ ParseStmt()
         if (curToken == ',')
             goto print_more;
         Newline();
+    } else if (c == TOK_IF) {
+        String ifpart, elsepart;
+        int haveelse = 0;
+        Val cond;
+        c = NextToken();
+        err = ParseExpr();
+        if (err != TS_ERR_OK) {
+            return err;
+        }
+        cond = Pop();
+        c = curToken;
+        if (c != TOK_STRING) {
+            return TS_ERR_SYNTAX;
+        }
+        ifpart = token;
+        c = NextToken();
+        if (c == TOK_ELSE) {
+            c = NextToken();
+            if (c != TOK_STRING) {
+                return TS_ERR_SYNTAX;
+            }
+            elsepart = token;
+            haveelse = 1;
+            NextToken();
+        }
+        if (cond) {
+            ParseString(ifpart);
+        } else if (haveelse) {
+            ParseString(elsepart);
+        }
     } else {
         return TS_ERR_SYNTAX;
     }
@@ -574,7 +608,7 @@ ParseString(String str)
         r = ParseStmt();
         if (r != TS_ERR_OK) return r;
         c = curToken;
-        if (c == '\n' || c == ';') {
+        if (c == '\n' || c == ';' || c < 0) {
             /* ok */
         } else {
             return TS_ERR_SYNTAX;
@@ -600,10 +634,11 @@ void
 TinyScript_Init(void)
 {
     DefineCSym("if",    TOKEN, TOK_IF);
+    DefineCSym("else",  TOKEN, TOK_ELSE);
     DefineCSym("while", TOKEN, TOK_WHILE);
     DefineCSym("print", TOKEN, TOK_PRINT);
     DefineCSym("var",   TOKEN, TOK_VARDEF);
-    DefineCSym("func",  TOKEN, TOK_FUNCDEF);
+    DefineCSym("proc",  TOKEN, TOK_FUNCDEF);
 
     // the various operators
     DefineCSym("*", BINOP(1), (intptr_t)prod);
