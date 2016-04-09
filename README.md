@@ -13,7 +13,7 @@ looks like:
     <stmt> ::= <vardecl> | <subrdecl> |
                | <assignment> | <ifstmt>
                | <whilestmt> | <subrcall>
-               | <printstmt>
+               | <printstmt> | <builtincall>
 
 The statements in a program are separated by newlines or ';'.
 
@@ -40,11 +40,13 @@ appear in {} strings, but not in strings enclosed by ".
 
     <ifstmt> ::= "if" <expr> <string> [<elsepart>]
     <elsepart> ::= "else" <string>
-    <whilestmt> ::= "while" <expr> <string>
+    <whilestmt> ::= "while" <expr> <string> [<elsepart>]
 
 As with subroutines, the strings in if and while statements are parsed
 and interpreted on an as-needed basis. Any non-zero expression is
-treated as true, and zero is treated as false.
+treated as true, and zero is treated as false. As a quirk of the
+implementation, it is permitted to add an "else" clause to a while statement;
+any such clause will always be executed after the loop exits.
 
     <subrcall> ::= <symbol>
     <printstmt> ::= "print" <printitem> [ "," <printitem>]*
@@ -58,11 +60,11 @@ by a unary operator:
     <expr0> ::= <symbol> | <number> 
                 | <unaryop><expr0> 
                 | "(" <expr> ")"
-                | <builtin> "(" <exprlist> ")"
-    <builtin> ::= <symbol>
-    <exprlist> ::= "" | <expr> ["," <expr>]*
+                | <builtincall>
+    <builtincall> ::= <symbol> "(" [<exprlist>] ")"
+    <exprlist> ::= <expr> ["," <expr>]*
 
-The only default unary operators are "+" and "-".
+
 Builtin functions are defined by the runtime.
 
     <expr1> ::= <expr0> [<binop1> <expr0>]*
@@ -72,9 +74,11 @@ Builtin functions are defined by the runtime.
     <binop2> ::= "+" | "-"
 
     <expr3> ::= <expr2> [<binop3><expr3>]*
-    <binop3> ::= "&" | "|" | "^"
+    <binop3> ::= "&" | "|" | "^" | "<<" | ">>"
 
     <expr4> ::= <expr3> [<binop4><expr4>]*
     <binop4> ::= "==" | "<>" | ">" | "<" | ">=" | "<="
+
+    <unaryop> ::= <binop2>
 
 The runtime system may choose to create new operators at any of these levels.

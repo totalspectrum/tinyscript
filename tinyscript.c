@@ -21,8 +21,6 @@ int symptr;
 Val valstack[VALSTACK_SIZE];
 int valptr;
 
-typedef Val (*Opfunc)(Val, Val);
-
 Val stringeq(String ai, String bi)
 {
     const Byte *a, *b;
@@ -58,7 +56,7 @@ PrintString(String s)
     }
 }
 
-void
+static void
 Newline(void)
 {
     outchar('\n');
@@ -126,7 +124,8 @@ LookupSym(String name)
 #define TOK_VAR    'v'
 #define TOK_VARDEF 'V'
 #define TOK_FUNC   'f'
-#define TOK_BINOP  'B'
+#define TOK_BUILTIN 'B'
+#define TOK_BINOP  'o'
 #define TOK_FUNCDEF 'F'
 #define TOK_SYNTAX_ERR 'Z'
 
@@ -269,9 +268,12 @@ doNextToken(int israw)
                     r = sym->value;
                 } else if (sym->type == PROC) {
                     r = TOK_FUNC;
+                } else if (sym->type == BUILTIN) {
+                    r = TOK_BUILTIN;
                 } else {
                     r = TOK_VAR;
                 }
+                tokenVal = sym->value;
             }
         }
     } else if (isoperator(c)) {
@@ -389,18 +391,40 @@ Cstring(const char *str)
     return x;
 }
 
-Sym *
-DefineCSym(const char *name, int typ, Val val)
+void
+TinyScript_Define(const char *name, int typ, Val val)
 {
-    return DefineSym(Cstring(name), typ, val);
+    DefineSym(Cstring(name), typ, val);
 }
 
 extern int ParseExpr();
 
+static int
+ParseExprList(int *countptr)
+{
+    int err;
+    int count = 0;
+    int c;
+    
+    do {
+        err = ParseExpr();
+        if (err != TS_ERR_OK) {
+            return err;
+        }
+        count++;
+        c = curToken;
+        if (c == ',') {
+            NextToken();
+        }
+    } while (c==',');
+    *countptr = count;
+    return TS_ERR_OK;
+}
+
 // parse a value; for now, just a number
 // returns 0 if valid, non-zero if syntax error
 
-int
+static int
 ParseExpr0()
 {
     int c;
@@ -422,10 +446,41 @@ ParseExpr0()
         NextToken();
         return TS_ERR_OK;
     } else if (c == TOK_VAR) {
-        Sym *sym = LookupSym(token);
-        if (!sym) return TS_ERR_UNKNOWN_SYM;
-        Push(sym->value);
+        Push(tokenVal);
         NextToken();
+        return TS_ERR_OK;
+    } else if (c == TOK_BUILTIN) {
+        Cfunc op = (Cfunc)tokenVal;
+        int paramCount = 0;
+        Val arg[MAX_BUILTIN_PARAMS];
+        c = NextToken();
+        if (c != '(') return TS_ERR_SYNTAX;
+        c = NextToken();
+        if (c != ')') {
+            err = ParseExprList(&paramCount);
+            c = curToken;
+        }
+        if (c!=')') {
+            return TS_ERR_SYNTAX;
+        }
+        NextToken();
+        // make sure at least 4 params on on the stack
+        while (paramCount < MAX_BUILTIN_PARAMS) {
+            Push(0);
+            paramCount++;
+        }
+        // we now have "paramCount" items pushed on to the stack
+        // pop em off
+        // we silently ignore parameters past the max
+        while (paramCount > MAX_BUILTIN_PARAMS) {
+            Pop();
+            --paramCount;
+        }
+        while (paramCount > 0) {
+            --paramCount;
+            arg[paramCount] = Pop();
+        }
+        Push(op(arg[0], arg[1], arg[2], arg[3]));
         return TS_ERR_OK;
     } else if ( (c & 0xff) == TOK_BINOP ) {
         // binary operator
@@ -669,6 +724,8 @@ static Val diff(Val x, Val y) { return x-y; }
 static Val bitand(Val x, Val y) { return x&y; }
 static Val bitor(Val x, Val y) { return x|y; }
 static Val bitxor(Val x, Val y) { return x^y; }
+static Val shl(Val x, Val y) { return x<<y; }
+static Val shr(Val x, Val y) { return x>>y; }
 static Val equals(Val x, Val y) { return x==y; }
 static Val ne(Val x, Val y) { return x!=y; }
 static Val lt(Val x, Val y) { return x<y; }
@@ -696,12 +753,14 @@ struct def {
     { "&",     BINOP(3), (intptr_t)bitand },
     { "|",     BINOP(3), (intptr_t)bitor },
     { "^",     BINOP(3), (intptr_t)bitxor },
+    { ">>",    BINOP(3), (intptr_t)shr },
+    { "<<",    BINOP(3), (intptr_t)shl },
     { "=",     BINOP(4), (intptr_t)equals },
-    { "<>",     BINOP(4), (intptr_t)ne },
+    { "<>",    BINOP(4), (intptr_t)ne },
     { "<",     BINOP(4), (intptr_t)lt },
-    { "<=",     BINOP(4), (intptr_t)le },
+    { "<=",    BINOP(4), (intptr_t)le },
     { ">",     BINOP(4), (intptr_t)gt },
-    { ">=",     BINOP(4), (intptr_t)ge },
+    { ">=",    BINOP(4), (intptr_t)ge },
 
     { NULL, 0, 0 }
 };
@@ -712,7 +771,7 @@ TinyScript_Init(void)
     int i;
 
     for (i = 0; defs[i].name; i++) {
-        DefineCSym(defs[i].name, defs[i].toktype, defs[i].val);
+        TinyScript_Define(defs[i].name, defs[i].toktype, defs[i].val);
     }
 }
 

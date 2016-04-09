@@ -47,11 +47,16 @@ typedef struct symbol {
     int    type;   // symbol type
 } Sym;
 
+#define MAX_BUILTIN_PARAMS 4
+
+typedef Val (*Cfunc)(Val, Val, Val, Val);
+typedef Val (*Opfunc)(Val, Val);
 
 //
 // global interface
 //
 void TinyScript_Init();
+void TinyScript_Define(const char *name, int toktype, Val value);
 int TinyScript_Run(const char *s, int saveStrings, int topLevel);
 
 // provided by our caller

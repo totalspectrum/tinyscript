@@ -35,6 +35,14 @@ runscript(const char *filename)
     exit(r);
 }
 
+// compute a function of two variables
+static Val testfunc(Val x, Val y, Val a, Val b)
+{
+    (void)a;
+    (void)b;
+    return x*x + y*y;
+}
+
 void
 REPL()
 {
@@ -58,6 +66,8 @@ main(int argc, char **argv)
         fprintf(stderr, "Usage: tinyscript [file]\n");
     }
     TinyScript_Init();
+    TinyScript_Define("dsqr", BUILTIN, (Val)testfunc);
+    
     if (argv[1]) {
         runscript(argv[1]);
     } else {
