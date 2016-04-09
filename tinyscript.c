@@ -3,13 +3,14 @@
 //
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 // use this a lot
-typedef uint8_t Byte;
+typedef char Byte;
 
 //our target is machines with < 64KB of memory, so 16 bit pointers
 //will do
-typedef uint16_t Ptr;
+typedef Byte *Ptr;
 
 // strings are represented as pointers with their 
 // our language has 4 data types: integer, string, function, and builtin
@@ -20,8 +21,8 @@ typedef enum {
     BUILTIN
 } Type;
 
-// we allow a full 32 bit range for values
-typedef int32_t Val;
+// val has to be able to hold a pointer
+typedef intptr_t Val;
 
 // strings are represented as (length,ptr) pairs
 // the length is limited to 12 bits, leaving 4 bits to hold type info
@@ -46,13 +47,13 @@ typedef struct symbol {
 #define HEAP_SIZE (2048)
 
 Sym symstack[SYMSTACK_SIZE];
-Ptr symptr;
+int symptr;
 
 Val valstack[VALSTACK_SIZE];
-Ptr valptr;
+int valptr;
 
 Byte heap[HEAP_SIZE];
-Ptr heapptr;
+int heapptr;
 
 Val stringeq(String ai, String bi)
 {
@@ -62,8 +63,8 @@ Val stringeq(String ai, String bi)
     if (ai.len != bi.len) {
         return 0;
     }
-    a = &heap[ai.ptr];
-    b = &heap[bi.ptr];
+    a = ai.ptr;
+    b = bi.ptr;
     len = ai.len;
     for (i = 0; i < len; i++) {
         if (*a != *b) return 0;
@@ -77,11 +78,11 @@ String pc;  // instruction pointer
 //
 // Utility function
 //
-int
+void
 PrintString(String s)
 {
     int len = s.len;
-    Byte *ptr = &heap[s.ptr];
+    Byte *ptr = s.ptr;
     while (len > 0) {
         putchar(*ptr);
         ptr++;
@@ -117,7 +118,7 @@ GetChar()
     int c;
     if (pc.len == 0)
         return -1;
-    c = heap[pc.ptr];
+    c = *pc.ptr;
     pc.ptr++;
     pc.len--;
     token.len++;
@@ -233,7 +234,7 @@ StringToNum(String s)
 {
     Val r = 0;
     int c;
-    Byte *ptr = &heap[s.ptr];
+    Byte *ptr = s.ptr;
     int len = s.len;
     while (len-- > 0) {
         c = *ptr++;
@@ -317,21 +318,20 @@ void
 BinaryOperator(int c)
 {
     Val b = Pop();
-    Val a = Pop();
-    Val r;
+    Val r = Pop();
     
     switch (c) {
     case '*':
-        r = (a*b);
+        r = (r*b);
         break;
     case '/':
-        r = (a/b);
+        r = (r/b);
         break;
     case '+':
-        r = (a+b);
+        r = (r+b);
         break;
     case '-':
-        r = (a-b);
+        r = (r-b);
         break;
     }
     Push(r);
@@ -382,7 +382,7 @@ int
 ParseExpr()
 {
     int negflag = 0;
-    Val r;
+
     if (curToken == '-') {
         negflag = 1;
         NextToken();
@@ -396,7 +396,15 @@ ParseExpr()
     return 0;
 }
 
-static int saveStrings;
+static String
+DupString(String orig)
+{
+    String x;
+    x.len = orig.len;
+    x.ptr = malloc(x.len);
+    memcpy(x.ptr, orig.ptr, x.len);
+    return x;
+}
 
 int
 ParseStmt()
@@ -405,7 +413,6 @@ ParseStmt()
     String name;
     Val val;
 
-    saveStrings = 0;
     c = NextToken();
     if (c == TOK_SYMBOL) {
         // is this a=expr?
@@ -420,11 +427,12 @@ ParseStmt()
         val = Pop();
         s = LookupSym(name);
         if (!s) {
+            // FIXME? needed for REPL, not elsewhere
+            name = DupString(name);
             s = DefineSym(name);
             if (!s) {
                 return 0;
             }
-            saveStrings = 1;
         }
         s->value = val;
     } else {
@@ -433,27 +441,17 @@ ParseStmt()
         }
         val = Pop();
     }
-    printf("%d\n", val);
+    printf("%d\n", (int)val);
     return 1;
 }
 
 String
-HeapPutCstring(char *str)
+Cstring(char *str)
 {
     String x;
-    Byte *dst;
-    int len;
     
-    x.tag = 0;
-    x.ptr = heapptr;
-    dst = &heap[heapptr];
-    len = 0;
-    while (*str) {
-        len++;
-        *dst++ = (Byte)*str++;
-    }
-    x.len = len;
-    heapptr += len;
+    x.len = strlen(str);
+    x.ptr = str;
     return x;
 }
 
@@ -462,7 +460,6 @@ REPL()
 {
     char buf[128];
     char *s;
-    Ptr heapsave;
 
     for(;;) {
         printf("> "); fflush(stdout);
@@ -470,13 +467,9 @@ REPL()
         for (s = buf; *s && *s != '\n' && *s != '\r'; s++)
             ;
         *s = 0;
-        heapsave = heapptr;
-        pc = HeapPutCstring(buf);
+        pc = Cstring(buf);
         if (!ParseStmt()) {
             printf("?parse err\n");
-        }
-        if (!saveStrings) {
-            heapptr = heapsave;
         }
     }
 }
