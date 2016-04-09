@@ -2,49 +2,11 @@
 // a very tiny scripting language
 //
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
-
-// use this a lot
-typedef char Byte;
-
-//our target is machines with < 64KB of memory, so 16 bit pointers
-//will do
-typedef Byte *Ptr;
-
-// strings are represented as pointers with their 
-// our language has 4 data types: integer, string, function, and builtin
-typedef enum {
-    INT,
-    STRING,
-    FUNCTION,
-    BUILTIN
-} Type;
-
-// val has to be able to hold a pointer
-typedef intptr_t Val;
-
-// strings are represented as (length,ptr) pairs
-// the length is limited to 12 bits, leaving 4 bits to hold type info
-typedef struct {
-    unsigned tag: 4; // for type info or anything else we want
-    unsigned len: 12;
-    Ptr      ptr;
-} String;
-
-// a symbol should fit in 64 bits
-// 32 bits for the symbol value
-// 32 bits for the symbol name
-// part of that 32 bits is re-used for the type
-
-typedef struct symbol {
-    String name;
-    Val value; // symbol value
-} Sym;
+#include "tinyscript.h"
 
 #define SYMSTACK_SIZE (1024/sizeof(Sym))
 #define VALSTACK_SIZE (1024/sizeof(Val))
-#define HEAP_SIZE (2048)
 
 Sym symstack[SYMSTACK_SIZE];
 int symptr;
@@ -52,12 +14,9 @@ int symptr;
 Val valstack[VALSTACK_SIZE];
 int valptr;
 
-Byte heap[HEAP_SIZE];
-int heapptr;
-
 Val stringeq(String ai, String bi)
 {
-    Byte *a, *b;
+    const Byte *a, *b;
     int i, len;
     
     if (ai.len != bi.len) {
@@ -82,7 +41,7 @@ void
 PrintString(String s)
 {
     int len = s.len;
-    Byte *ptr = s.ptr;
+    const Byte *ptr = s.ptr;
     while (len > 0) {
         putchar(*ptr);
         ptr++;
@@ -234,7 +193,7 @@ StringToNum(String s)
 {
     Val r = 0;
     int c;
-    Byte *ptr = s.ptr;
+    const Byte *ptr = s.ptr;
     int len = s.len;
     while (len-- > 0) {
         c = *ptr++;
@@ -400,9 +359,11 @@ static String
 DupString(String orig)
 {
     String x;
+    char *ptr;
     x.len = orig.len;
-    x.ptr = malloc(x.len);
-    memcpy(x.ptr, orig.ptr, x.len);
+    ptr = malloc(x.len);
+    memcpy(ptr, orig.ptr, x.len);
+    x.ptr = ptr;
     return x;
 }
 
@@ -446,7 +407,7 @@ ParseStmt()
 }
 
 String
-Cstring(char *str)
+Cstring(const char *str)
 {
     String x;
     
@@ -456,28 +417,17 @@ Cstring(char *str)
 }
 
 void
-REPL()
+TinyScript_Init(void)
 {
-    char buf[128];
-    char *s;
-
-    for(;;) {
-        printf("> "); fflush(stdout);
-        fgets(buf, sizeof(buf), stdin);
-        for (s = buf; *s && *s != '\n' && *s != '\r'; s++)
-            ;
-        *s = 0;
-        pc = Cstring(buf);
-        if (!ParseStmt()) {
-            printf("?parse err\n");
-        }
-    }
 }
 
 int
-main()
+TinyScript_Run(const char *buf)
 {
-    REPL();
+    pc = Cstring(buf);
+    if (!ParseStmt()) {
+        printf("?parse err\n");
+        return -1;
+    }
     return 0;
 }
-
