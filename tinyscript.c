@@ -122,6 +122,7 @@ LookupSym(String name)
 #define TOK_VARDEF 'V'
 #define TOK_FUNC   'f'
 #define TOK_FUNCDEF 'F'
+#define TOK_UNEXPECTED_EOF 'Z'
 
 // fetch the next token
 int curToken;
@@ -150,6 +151,11 @@ GetChar()
     return c;
 }
 
+void
+IgnoreLastChar()
+{
+    token.len--;
+}
 //
 // undo last getchar
 // (except at end of input)
@@ -157,11 +163,9 @@ GetChar()
 void
 UngetChar()
 {
-    if (1) {
-        pc.len++;
-        pc.ptr--;
-        token.len--;
-    }
+    pc.len++;
+    pc.ptr--;
+    token.len--;
 }
 
 int isspace(int c)
@@ -180,6 +184,10 @@ int islower(int c)
 int isalpha(int c)
 {
     return islower(c) || ((c >= 'A' && c <= 'Z'));
+}
+int notquote(int c)
+{
+    return (c >= 0) && (c != '"');
 }
 
 void
@@ -236,6 +244,29 @@ doNextToken(int israw)
                 }
             }
         }
+    } else if (c == '{') {
+        int bracket = 1;
+        ResetToken();
+        while (bracket > 0) {
+            c = GetChar();
+            if (c < 0) {
+                return TOK_UNEXPECTED_EOF;
+            }
+            if (c == '}') {
+                --bracket;
+            } else if (c == '{') {
+                ++bracket;
+            }
+        }
+        IgnoreLastChar();
+        r = TOK_STRING;
+    } else if (c == '"') {
+        ResetToken();
+        GetSpan(notquote);
+        c = GetChar();
+        if (c < 0) return TOK_UNEXPECTED_EOF;
+        IgnoreLastChar();
+        r = TOK_STRING;
     } else {
         r = c;
     }
@@ -467,7 +498,7 @@ ParseStmt()
     
     c = curToken;
     if (c == TOK_VARDEF) {
-        // could be a definition a=x
+        // a definition var a=x
         c=NextRawToken(); // we want to get VAR_SYMBOL directly
         if (c != TOK_SYMBOL) return 0;
         // FIXME? DupString needed for REPL, not elsewhere
@@ -492,17 +523,25 @@ ParseStmt()
             return TS_ERR_UNKNOWN_SYM; // unknown symbol
         }
         s->value = val;
-    } else {
-        if (c == TOK_PRINT) {
+    } else if (c == TOK_PRINT) {
+    print_more:
+        c = NextToken();
+        if (c == TOK_STRING) {
+            PrintString(token);
             NextToken();
+        } else {
+            err = ParseExpr();
+            if (err != TS_ERR_OK) {
+                return err;
+            }
+            val = Pop();
+            PrintNumber(val);
         }
-        err = ParseExpr();
-        if (err != TS_ERR_OK) {
-            return err;
-        }
-        val = Pop();
-        PrintNumber(val);
+        if (curToken == ',')
+            goto print_more;
         Newline();
+    } else {
+        return TS_ERR_SYNTAX;
     }
     return TS_ERR_OK;
 }
@@ -517,12 +556,15 @@ ParseString(String str)
     pc = str;
     for(;;) {
         c = NextToken();
+        while (c == '\n' || c == ';') {
+            c = NextToken();
+        }
         if (c < 0) break;
         r = ParseStmt();
         if (r != TS_ERR_OK) return r;
         c = curToken;
         if (c == '\n' || c == ';') {
-            ; /* continue */
+            /* ok */
         } else {
             return TS_ERR_SYNTAX;
         }
