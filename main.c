@@ -28,7 +28,7 @@ runscript(const char *filename)
         return;
     }
     script[r] = 0;
-    r = TinyScript_Run(script);
+    r = TinyScript_Run(script, 0, 1);
     if (r != 0) {
         printf("script error %d\n", r);
     }
@@ -39,13 +39,12 @@ void
 REPL()
 {
     char buf[128];
-    char *s;
     int r;
     
     for(;;) {
         printf("> "); fflush(stdout);
         fgets(buf, sizeof(buf), stdin);
-        r = TinyScript_Run(buf);
+        r = TinyScript_Run(buf, 1, 1);
         if (r != 0) {
             printf("error %d\n", r);
         }

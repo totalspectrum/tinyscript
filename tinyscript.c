@@ -496,10 +496,15 @@ DupString(String orig)
     return x;
 }
 
-int ParseString(String str);
+int ParseString(String str, int saveStrings, int topLevel);
 
+//
+// parse one statement
+// 1 is true if we need to save strings we encounter (we've been passed
+// a temporary string)
+//
 int
-ParseStmt()
+ParseStmt(int saveStrings)
 {
     int c;
     String name;
@@ -512,8 +517,11 @@ ParseStmt()
         // a definition var a=x
         c=NextRawToken(); // we want to get VAR_SYMBOL directly
         if (c != TOK_SYMBOL) return 0;
-        // FIXME? DupString needed for REPL, not elsewhere
-        name = DupString(token);
+        if (saveStrings) {
+            name = DupString(token);
+        } else {
+            name = token;
+        }
         DefineVar(name);
         c = TOK_VAR;
     }
@@ -581,9 +589,9 @@ ParseStmt()
             NextToken();
         }
         if (cond) {
-            ParseString(ifpart);
+            ParseString(ifpart, 0, 0);
         } else if (haveelse) {
-            ParseString(elsepart);
+            ParseString(elsepart, 0, 0);
         }
     } else {
         return TS_ERR_SYNTAX;
@@ -592,9 +600,10 @@ ParseStmt()
 }
 
 int
-ParseString(String str)
+ParseString(String str, int saveStrings, int topLevel)
 {
     String savepc = pc;
+    int savesymptr = symptr;
     int c;
     int r;
     
@@ -605,7 +614,7 @@ ParseString(String str)
             c = NextToken();
         }
         if (c < 0) break;
-        r = ParseStmt();
+        r = ParseStmt(saveStrings);
         if (r != TS_ERR_OK) return r;
         c = curToken;
         if (c == '\n' || c == ';' || c < 0) {
@@ -615,6 +624,10 @@ ParseString(String str)
         }
     }
     pc = savepc;
+    if (!topLevel) {
+        // restore variable context
+        symptr = savesymptr;
+    }
     return TS_ERR_OK;
 }
 
@@ -652,7 +665,7 @@ TinyScript_Init(void)
 }
 
 int
-TinyScript_Run(const char *buf)
+TinyScript_Run(const char *buf, int saveStrings, int topLevel)
 {
-    return ParseString(Cstring(buf));
+    return ParseString(Cstring(buf), saveStrings, topLevel);
 }

@@ -24,7 +24,8 @@ if (y = x) {
 } else {
   print "x and y differ"
 }
-#if (1) {
-#  var x=2
-#  print "x=", x
-#}
+if (1) {
+  var x=2
+  print "x=", x
+}
+print "now x=", x

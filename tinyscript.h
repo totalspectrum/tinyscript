@@ -51,7 +51,7 @@ typedef struct symbol {
 // global interface
 //
 void TinyScript_Init();
-int TinyScript_Run(const char *s);
+int TinyScript_Run(const char *s, int saveStrings, int topLevel);
 
 // provided by our caller
 extern int inchar(void);
