@@ -10,14 +10,6 @@ typedef char Byte;
 //will do
 typedef Byte *Ptr;
 
-// our language has 4 data types: integer, string, function, and builtin
-typedef enum {
-    INT,
-    STRING,
-    FUNCTION,
-    BUILTIN
-} Type;
-
 // val has to be able to hold a pointer
 typedef intptr_t Val;
 
@@ -27,14 +19,25 @@ typedef struct {
     const char *ptr;
 } String;
 
+// symbols can take the following forms:
+typedef enum {
+    INT,
+    STRING,
+    FUNCTION,  // scripting language func
+    TOKEN,     // language token
+    BUILTIN_0, // builtin func with no args
+    BUILTIN_1, // builtin func with 1 arg
+    BUILTIN_2, // builtin func with 2 args
+} Type;
+
 // a symbol should fit in 64 bits
 // 32 bits for the symbol value
 // 32 bits for the symbol name
-// part of that 32 bits is re-used for the type
 
 typedef struct symbol {
     String name;
-    Val value; // symbol value
+    Val    value;  // symbol value
+    Type   type;   // symbol type
 } Sym;
 
 

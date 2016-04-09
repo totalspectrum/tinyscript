@@ -49,6 +49,24 @@ PrintString(String s)
     }
 }
 
+// look up a symbol by name
+Sym *
+LookupSym(String name)
+{
+    Sym *s;
+    int n;
+
+    n = symptr;
+    while (n > 0) {
+        --n;
+        s = &symstack[n];
+        if (stringeq(s->name, name)) {
+            return s;
+        }
+    }
+    return NULL;
+}
+
 //
 // parse an expression or statement
 //
@@ -56,6 +74,12 @@ PrintString(String s)
 #define TOK_SYMBOL 'A'
 #define TOK_NUMBER 'N'
 #define TOK_STRING 'S'
+#define TOK_IF     'i'
+#define TOK_WHILE  'w'
+#define TOK_PRINT  'p'
+#define TOK_VAR    'v'
+#define TOK_VARDEF 'V'
+#define TOK_FUNC   'f'
 
 // fetch the next token
 int curToken;
@@ -128,8 +152,8 @@ GetSpan(int (*testfn)(int))
     }
 }
 
-int
-NextToken()
+static int
+doNextToken(int israw)
 {
     int c;
     int r = -1;
@@ -154,8 +178,22 @@ NextToken()
         GetSpan(isdigit);
         r = TOK_NUMBER;
     } else if ( isalpha(c) ) {
+        Sym *sym;
         GetSpan(isalpha);
         r = TOK_SYMBOL;
+        // check for special tokens
+        if (!israw) {
+            sym = LookupSym(token);
+            if (sym) {
+                if (sym->type == TOKEN) {
+                    r = sym->value;
+                } else if (sym->type == FUNCTION) {
+                    r = TOK_FUNC;
+                } else {
+                    r = TOK_VAR;
+                }
+            }
+        }
     } else {
         r = c;
     }
@@ -167,6 +205,9 @@ NextToken()
     curToken = r;
     return r;
 }
+
+int NextToken() { return doNextToken(0); }
+int NextRawToken() { return doNextToken(1); }
 
 // push a number on the result stack
 void
@@ -203,26 +244,9 @@ StringToNum(String s)
     return r;
 }
 
-// look up a symbol by name
-Sym *
-LookupSym(String name)
-{
-    Sym *s;
-    int n;
-
-    n = symptr;
-    while (n > 0) {
-        --n;
-        s = &symstack[n];
-        if (stringeq(s->name, name)) {
-            return s;
-        }
-    }
-    return NULL;
-}
 // define a symbol
 Sym *
-DefineSym(String name)
+DefineSym(String name, Type typ, Val value)
 {
     Sym *s;
     if (symptr == SYMSTACK_SIZE) {
@@ -231,8 +255,31 @@ DefineSym(String name)
     }
     s = &symstack[symptr++];
     s->name = name;
-    s->value = 0;
+    s->value = value;
+    s->type = typ;
     return s;
+}
+
+Sym *
+DefineVar(String name)
+{
+    return DefineSym(name, INT, 0);
+}
+
+String
+Cstring(const char *str)
+{
+    String x;
+    
+    x.len = strlen(str);
+    x.ptr = str;
+    return x;
+}
+
+Sym *
+DefineCSym(const char *name, Type typ, Val val)
+{
+    return DefineSym(Cstring(name), typ, val);
 }
 
 extern int ParseExpr();
@@ -261,7 +308,7 @@ ParseVal()
         Push(StringToNum(token));
         NextToken();
         return 1;
-    } else if (c == TOK_SYMBOL) {
+    } else if (c == TOK_VAR) {
         Sym *sym = LookupSym(token);
         if (!sym) return 0;
         Push(sym->value);
@@ -375,7 +422,16 @@ ParseStmt()
     Val val;
 
     c = NextToken();
-    if (c == TOK_SYMBOL) {
+    if (c == TOK_VARDEF) {
+        // could be a definition a=x
+        c=NextRawToken(); // we want to get VAR_SYMBOL directly
+        if (c != TOK_SYMBOL) return 0;
+        // FIXME? DupString needed for REPL, not elsewhere
+        name = DupString(token);
+        DefineVar(name);
+        c = TOK_VAR;
+    }
+    if (c == TOK_VAR) {
         // is this a=expr?
         Sym *s;
         name = token;
@@ -388,37 +444,29 @@ ParseStmt()
         val = Pop();
         s = LookupSym(name);
         if (!s) {
-            // FIXME? needed for REPL, not elsewhere
-            name = DupString(name);
-            s = DefineSym(name);
-            if (!s) {
-                return 0;
-            }
+            return 0; // unknown symbol
         }
         s->value = val;
     } else {
+        if (c == TOK_PRINT) {
+            NextToken();
+        }
         if (!ParseExpr()) {
             return 0;
         }
         val = Pop();
+        printf("%d\n", (int)val);
     }
-    printf("%d\n", (int)val);
     return 1;
-}
-
-String
-Cstring(const char *str)
-{
-    String x;
-    
-    x.len = strlen(str);
-    x.ptr = str;
-    return x;
 }
 
 void
 TinyScript_Init(void)
 {
+    DefineCSym("if",    TOKEN, TOK_IF);
+    DefineCSym("while", TOKEN, TOK_WHILE);
+    DefineCSym("var",   TOKEN, TOK_VARDEF);
+    DefineCSym("print", TOKEN, TOK_PRINT);
 }
 
 int
