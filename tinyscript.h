@@ -47,4 +47,8 @@ typedef struct symbol {
 void TinyScript_Init();
 int TinyScript_Run(const char *s);
 
+// provided by our caller
+extern int inchar(void);
+extern void outchar(int c);
+
 #endif

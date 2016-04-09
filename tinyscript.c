@@ -1,7 +1,6 @@
 //
 // a very tiny scripting language
 //
-#include <stdio.h>
 #include <string.h>
 #include "tinyscript.h"
 
@@ -35,7 +34,7 @@ Val stringeq(String ai, String bi)
 String pc;  // instruction pointer
 
 //
-// Utility function
+// Utility functions
 //
 void
 PrintString(String s)
@@ -43,9 +42,45 @@ PrintString(String s)
     int len = s.len;
     const Byte *ptr = s.ptr;
     while (len > 0) {
-        putchar(*ptr);
+        outchar(*ptr);
         ptr++;
         --len;
+    }
+}
+
+void
+Newline(void)
+{
+    outchar('\n');
+}
+
+void
+PrintNumber(Val v)
+{
+    unsigned long x;
+    unsigned base = 10;
+    int prec = 1;
+    int digits = 0;
+    int c;
+    char buf[32];
+    
+    if (v < 0) {
+        outchar('-');
+        x = -v;
+    } else {
+        x = v;
+    }
+    while (x > 0 || digits < prec) {
+        c = x % base;
+        x = x / base;
+        if (c < 10) c += '0';
+        else c = (c - 10) + 'a';
+        buf[digits++] = c;
+    }
+    // now output
+    while (digits > 0) {
+        --digits;
+        outchar(buf[digits]);
     }
 }
 
@@ -250,7 +285,7 @@ DefineSym(String name, Type typ, Val value)
 {
     Sym *s;
     if (symptr == SYMSTACK_SIZE) {
-        printf("too many symbols\n");
+        //FIXME printf("too many symbols\n");
         return NULL;
     }
     s = &symstack[symptr++];
@@ -455,7 +490,8 @@ ParseStmt()
             return 0;
         }
         val = Pop();
-        printf("%d\n", (int)val);
+        PrintNumber(val);
+        Newline();
     }
     return 1;
 }
@@ -474,7 +510,7 @@ TinyScript_Run(const char *buf)
 {
     pc = Cstring(buf);
     if (!ParseStmt()) {
-        printf("?parse err\n");
+        // FIXME printf("?parse err\n");
         return -1;
     }
     return 0;
