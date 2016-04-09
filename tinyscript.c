@@ -1,7 +1,13 @@
 //
 // a very tiny scripting language
 //
+//#define DEBUG
+#ifdef DEBUG
+#include <stdio.h>
+#endif
+
 #include <string.h>
+#include <stdlib.h>
 #include "tinyscript.h"
 
 #define SYMSTACK_SIZE (1024/sizeof(Sym))
@@ -115,6 +121,7 @@ LookupSym(String name)
 #define TOK_VAR    'v'
 #define TOK_VARDEF 'V'
 #define TOK_FUNC   'f'
+#define TOK_FUNCDEF 'F'
 
 // fetch the next token
 int curToken;
@@ -232,7 +239,7 @@ doNextToken(int israw)
     } else {
         r = c;
     }
-#if 0
+#ifdef DEBUG
     printf("Token[%c] = ", r);
     PrintString(token);
     printf("\n");
@@ -320,42 +327,42 @@ DefineCSym(const char *name, Type typ, Val val)
 extern int ParseExpr();
 
 // parse a value; for now, just a number
-// returns 1 if valid, 0 if syntax error
+// returns 0 if valid, non-zero if syntax error
 
 int
 ParseVal()
 {
     int c;
-    int valid;
+    int err;
     c = curToken;
     if (c == '(') {
         NextToken();
-        valid = ParseExpr();
-        if (valid) {
+        err = ParseExpr();
+        if (err == TS_ERR_OK) {
             c = curToken;
             if (c == ')') {
                 NextToken();
-                return 1;
+                return TS_ERR_OK;
             }
         }
-        return 0;
+        return err;
     } else if (c == TOK_NUMBER) {
         Push(StringToNum(token));
         NextToken();
-        return 1;
+        return TS_ERR_OK;
     } else if (c == TOK_VAR) {
         Sym *sym = LookupSym(token);
-        if (!sym) return 0;
+        if (!sym) return TS_ERR_UNKNOWN_SYM;
         Push(sym->value);
         NextToken();
-        return 1;
+        return TS_ERR_OK;
     } else {
-        return 0;
+        return TS_ERR_SYNTAX;
     }
 }
 
 // perform an operation
-void
+static void
 BinaryOperator(int c)
 {
     Val b = Pop();
@@ -382,59 +389,60 @@ BinaryOperator(int c)
 int
 ParseTerm()
 {
-    int valid = 0;
+    int err = TS_ERR_OK;
     int c;
-    valid = ParseVal();
-    if (!valid) return valid;
+    err = ParseVal();
+    if (err != TS_ERR_OK) return err;
     c = curToken;
     while (c == '*' || c == '/') {
         NextToken();
-        valid = ParseVal();
-        if (!valid) {
+        err = ParseVal();
+        if (err != TS_ERR_OK) {
             Pop();
-            return valid;
+            return err;
         }
         BinaryOperator(c);
         c = curToken;
     }
-    return 1;
+    return TS_ERR_OK;
 }
 int
 ParseSimpleExpr()
 {
-    int valid = 0;
+    int err = TS_ERR_OK;
     int c;
-    valid = ParseTerm();
-    if (!valid) return valid;
+    err = ParseTerm();
+    if (err != TS_ERR_OK) return err;
     c = curToken;
     while (c == '+' || c == '-') {
         NextToken();
-        valid = ParseTerm();
-        if (!valid) {
+        err = ParseTerm();
+        if (err != TS_ERR_OK) {
             Pop();
-            return valid;
+            return err;
         }
         BinaryOperator(c);
         c = curToken;
     }
-    return 1;
+    return TS_ERR_OK;
 }
 int
 ParseExpr()
 {
     int negflag = 0;
-
+    int err;
+    
     if (curToken == '-') {
         negflag = 1;
         NextToken();
     }
-    if (ParseSimpleExpr()) {
+    err = ParseSimpleExpr();
+    if (err == TS_ERR_OK) {
         if (negflag) {
             Push(-Pop());
         }
-        return 1;
     }
-    return 0;
+    return err;
 }
 
 static String
@@ -455,8 +463,9 @@ ParseStmt()
     int c;
     String name;
     Val val;
-
-    c = NextToken();
+    int err;
+    
+    c = curToken;
     if (c == TOK_VARDEF) {
         // could be a definition a=x
         c=NextRawToken(); // we want to get VAR_SYMBOL directly
@@ -471,29 +480,55 @@ ParseStmt()
         Sym *s;
         name = token;
         c = NextToken();
-        if (c != '=') return 0;
+        if (c != '=') return TS_ERR_SYNTAX;
         NextToken();
-        if (!ParseExpr()) {
-            return 0;
+        err = ParseExpr();
+        if (err != TS_ERR_OK) {
+            return err;
         }
         val = Pop();
         s = LookupSym(name);
         if (!s) {
-            return 0; // unknown symbol
+            return TS_ERR_UNKNOWN_SYM; // unknown symbol
         }
         s->value = val;
     } else {
         if (c == TOK_PRINT) {
             NextToken();
         }
-        if (!ParseExpr()) {
-            return 0;
+        err = ParseExpr();
+        if (err != TS_ERR_OK) {
+            return err;
         }
         val = Pop();
         PrintNumber(val);
         Newline();
     }
-    return 1;
+    return TS_ERR_OK;
+}
+
+int
+ParseString(String str)
+{
+    String savepc = pc;
+    int c;
+    int r;
+    
+    pc = str;
+    for(;;) {
+        c = NextToken();
+        if (c < 0) break;
+        r = ParseStmt();
+        if (r != TS_ERR_OK) return r;
+        c = curToken;
+        if (c == '\n' || c == ';') {
+            ; /* continue */
+        } else {
+            return TS_ERR_SYNTAX;
+        }
+    }
+    pc = savepc;
+    return TS_ERR_OK;
 }
 
 void
@@ -501,17 +536,13 @@ TinyScript_Init(void)
 {
     DefineCSym("if",    TOKEN, TOK_IF);
     DefineCSym("while", TOKEN, TOK_WHILE);
-    DefineCSym("var",   TOKEN, TOK_VARDEF);
     DefineCSym("print", TOKEN, TOK_PRINT);
+    DefineCSym("var",   TOKEN, TOK_VARDEF);
+    DefineCSym("func",  TOKEN, TOK_FUNCDEF);
 }
 
 int
 TinyScript_Run(const char *buf)
 {
-    pc = Cstring(buf);
-    if (!ParseStmt()) {
-        // FIXME printf("?parse err\n");
-        return -1;
-    }
-    return 0;
+    return ParseString(Cstring(buf));
 }

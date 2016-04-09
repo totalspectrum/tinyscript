@@ -3,6 +3,16 @@
 
 #include <stdint.h>
 
+// errors
+// all the ParseXXX functions return 0 on success, a non-zero
+// error code otherwise
+enum {
+    TS_ERR_OK = 0,
+    TS_ERR_NOMEM = -1,
+    TS_ERR_SYNTAX = -2,
+    TS_ERR_UNKNOWN_SYM = -3
+};
+
 // we use this a lot
 typedef char Byte;
 
