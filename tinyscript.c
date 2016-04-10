@@ -368,6 +368,10 @@ Sym *
 DefineSym(String name, int typ, Val value)
 {
     Sym *s = symptr;
+
+    if (name.ptr == NULL) {
+        return NULL;
+    }
     symptr++;
     if ( (intptr_t)symptr >= (intptr_t)valptr) {
         //out of memory
@@ -546,14 +550,31 @@ ParseExpr()
     return ParseExprLevel(MAX_EXPR_LEVEL);
 }
 
+static char *
+stack_alloc(int len)
+{
+    int mask = sizeof(Val)-1;
+    intptr_t base;
+    
+    len = (len + mask) & ~mask;
+    base = ((intptr_t)valptr) - len;
+    if (base < (intptr_t)symptr) {
+        return NULL;
+    }
+    valptr = (Val *)base;
+    return (char *)base;
+}
+
 static String
 DupString(String orig)
 {
     String x;
     char *ptr;
     x.len = orig.len;
-    ptr = malloc(x.len);
-    memcpy(ptr, orig.ptr, x.len);
+    ptr = stack_alloc(x.len);
+    if (ptr) {
+        memcpy(ptr, orig.ptr, x.len);
+    }
     x.ptr = ptr;
     return x;
 }
@@ -803,7 +824,7 @@ struct def {
     { NULL, 0, 0 }
 };
 
-void
+int
 TinyScript_Init(void *mem, int mem_size)
 {
     int i;
@@ -813,8 +834,10 @@ TinyScript_Init(void *mem, int mem_size)
     symptr = (Sym *)arena;
     valptr = (Val *)(arena + arena_size);
     for (i = 0; defs[i].name; i++) {
-        TinyScript_Define(defs[i].name, defs[i].toktype, defs[i].val);
+        if (!TinyScript_Define(defs[i].name, defs[i].toktype, defs[i].val))
+            return TS_ERR_NOMEM;
     }
+    return TS_ERR_OK;
 }
 
 int

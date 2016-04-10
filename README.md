@@ -94,10 +94,14 @@ Interface to C
 ==============
 
 The C program must initialize the interpreter with `TinyScript_Init` before
-making any other calls. It may then define builtin symbols with
-`TinyScript_Define(name, BUILTIN, (Val)func)`, where "name" is the name of the
-symbol in scripts and "func" is the C function. Technically the function
-should have prototype:
+making any other calls. TinyScript_Init takes two parameters: the base
+of a memory region the interpreter can use, and the size of that region.
+It returns TS_ERR_OK on success, or an error on failure.
+
+If TinyScript_Init succeeds, the application may then define builtin
+symbols with `TinyScript_Define(name, BUILTIN, (Val)func)`, where
+"name" is the name of the symbol in scripts and "func" is the C
+function. Technically the function should have prototype:
 
     Val func(Val a, Val b, Val c, Val d)
 
