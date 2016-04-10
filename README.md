@@ -144,27 +144,28 @@ Embedded systems may want to provide a definition that uses the serial port
 or an attached display.
 
 The application must initialize the interpreter with `TinyScript_Init` before
-making any other calls. TinyScript_Init takes two parameters: the base
+making any other calls. `TinyScript_Init` takes two parameters: the base
 of a memory region the interpreter can use, and the size of that region.
-It returns TS_ERR_OK on success, or an error on failure. It is recommended
+It returns `TS_ERR_OK` on success, or an error on failure. It is recommended
 to provide at least 2K of space to the interpreter.
 
-If TinyScript_Init succeeds, the application may then define builtin
+If `TinyScript_Init` succeeds, the application may then define builtin
 symbols with `TinyScript_Define(name, BUILTIN, (Val)func)`, where
-"name" is the name of the symbol in scripts and "func" is the C
+`name` is the name of the symbol in scripts and `func` is the C
 function. Technically the function should have prototype:
 
     Val func(Val a, Val b, Val c, Val d)
 
 However, most C compiler calling conventions are such that any C function
-(other than varargs ones) will work. On the script side, the interpreter
+(other than varargs ones) will work. (Certainly this is true of GCC on
+the Propeller). On the script side, the interpreter
 will supply 0 for any arguments the user does not supply, and will silently
 ignore arguments given beyond the fourth.
 
 To run a script, use `TinyScript_Run(script, saveStrings, topLevel)`. Here
-"script" is a C string, "saveStrings" is 1 if any variable names created
-in the script need to be saved in newly allocated memory (this is necessary
-if the space "script" is stored in may later be overwritten, e.g. in
-a REPL loop by new commands typed by the user. "topLevel" is 1 if the
+`script` is a C string, `saveStrings` is 1 if any variable names created
+in the script need to be saved in newly allocated memory -- this is necessary
+if the space `script` is stored in may later be overwritten, e.g. in
+a REPL loop by new commands typed by the user. `topLevel` is 1 if the
 variables created by the script should be kept after it finishes.
 
