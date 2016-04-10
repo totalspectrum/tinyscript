@@ -40,9 +40,9 @@
 #include <stdlib.h>
 #include "tinyscript.h"
 
-#define SYMSTACK_SIZE (2048/sizeof(Sym))
-#define VALSTACK_SIZE (1024/sizeof(Val))
-
+// where our data is stored
+// value stack grows from the top of the area to the bottom
+// symbol stack grows from the bottom up
 static int arena_size;
 static Byte *arena;
 
@@ -51,22 +51,22 @@ static Val *valptr;
 static String pc;  // instruction pointer
 
 // fetch the next token
-static int curToken;
-static String token;
-static Val tokenVal;
+static int curToken;  // what kind of token is current
+static String token;  // the actual string representing the token
+static Val tokenVal;  // for symbolic tokens, the symbol's value
 
-
+// compare two Strings for equality
 Val stringeq(String ai, String bi)
 {
     const Byte *a, *b;
     int i, len;
-    
-    if (ai.len != bi.len) {
+
+    len = StringGetLen(ai);
+    if (len != StringGetLen(bi)) {
         return 0;
     }
-    a = ai.ptr;
-    b = bi.ptr;
-    len = ai.len;
+    a = StringGetPtr(ai);
+    b = StringGetPtr(bi);
     for (i = 0; i < len; i++) {
         if (*a != *b) return 0;
         a++; b++;
@@ -77,11 +77,13 @@ Val stringeq(String ai, String bi)
 //
 // Utility functions
 //
-static void
+
+// print a string
+void
 PrintString(String s)
 {
-    int len = s.len;
-    const Byte *ptr = s.ptr;
+    unsigned len = StringGetLen(s);
+    const Byte *ptr = StringGetPtr(s);
     while (len > 0) {
         outchar(*ptr);
         ptr++;
@@ -89,12 +91,15 @@ PrintString(String s)
     }
 }
 
-static void
+// print a newline
+void
 Newline(void)
 {
     outchar('\n');
 }
 
+// print a number
+// FIXME: should this be delegated to the application?
 static void
 PrintNumber(Val v)
 {
@@ -162,8 +167,8 @@ LookupSym(String name)
 
 static void ResetToken()
 {
-    token.len = 0;
-    token.ptr = pc.ptr;
+    StringSetLen(&token, 0);
+    StringSetPtr(&token, StringGetPtr(pc));
 }
 
 //
@@ -173,32 +178,38 @@ static int
 GetChar()
 {
     int c;
-    if (pc.len == 0)
+    unsigned len = StringGetLen(pc);
+    const char *ptr;
+    if (len == 0)
         return -1;
-    c = *pc.ptr;
-    pc.ptr++;
-    pc.len--;
-    token.len++;
+    ptr = StringGetPtr(pc);
+    c = *ptr++;
+    --len;
+
+    StringSetPtr(&pc, ptr);
+    StringSetLen(&pc, len);
+    StringSetLen(&token, StringGetLen(token)+1);
     return c;
 }
 
+// remove the last character read from the token
 static void
 IgnoreLastChar()
 {
-    token.len--;
+    StringSetLen(&token, StringGetLen(token)-1);
 }
 //
 // undo last getchar
-// (except at end of input)
 //
 static void
 UngetChar()
 {
-    pc.len++;
-    pc.ptr--;
-    token.len--;
+    StringSetLen(&pc, StringGetLen(pc)+1);
+    StringSetPtr(&pc, StringGetPtr(pc)-1);
+    IgnoreLastChar();
 }
 
+// return true if a character is in a string
 static int charin(int c, const char *str)
 {
     while (*str) {
@@ -206,6 +217,10 @@ static int charin(int c, const char *str)
     }
     return 0;
 }
+
+// these appear in <ctypes.h> too, but
+// we don't want macros and we don't want to
+// drag in a table of character flags
 static int isspace(int c)
 {
     return charin(c, " \t");
@@ -381,8 +396,8 @@ StringToNum(String s)
 {
     Val r = 0;
     int c;
-    const Byte *ptr = s.ptr;
-    int len = s.len;
+    const Byte *ptr = StringGetPtr(s);
+    int len = StringGetLen(s);
     while (len-- > 0) {
         c = *ptr++;
         if (!isdigit(c)) break;
@@ -397,7 +412,7 @@ DefineSym(String name, int typ, Val value)
 {
     Sym *s = symptr;
 
-    if (name.ptr == NULL) {
+    if (StringGetPtr(name) == NULL) {
         return NULL;
     }
     symptr++;
@@ -422,8 +437,8 @@ Cstring(const char *str)
 {
     String x;
     
-    x.len = strlen(str);
-    x.ptr = str;
+    StringSetLen(&x, strlen(str));
+    StringSetPtr(&x, str);
     return x;
 }
 
@@ -598,12 +613,13 @@ DupString(String orig)
 {
     String x;
     char *ptr;
-    x.len = orig.len;
-    ptr = stack_alloc(x.len);
+    unsigned len = StringGetLen(orig);
+    ptr = stack_alloc(len);
     if (ptr) {
-        memcpy(ptr, orig.ptr, x.len);
+        memcpy(ptr, StringGetPtr(orig), len);
     }
-    x.ptr = ptr;
+    StringSetLen(&x, len);
+    StringSetPtr(&x, ptr);
     return x;
 }
 
@@ -687,7 +703,7 @@ ParseStmt(int saveStrings)
         c = NextToken();
         // we expect the "=" operator
         // verify that it is "="
-        if (token.ptr[0] != '=' || token.len != 1) {
+        if (StringGetPtr(token)[0] != '=' || StringGetLen(token) != 1) {
             return TS_ERR_SYNTAX;
         }
         NextToken();
@@ -745,8 +761,8 @@ ParseStmt(int saveStrings)
         Sym *sym = LookupSym(token);
         String body;
         if (!sym) return TS_ERR_SYNTAX;
-        body.ptr = (const char *)sym->value;
-        body.len = sym->aux;
+        StringSetPtr(&body, (const char *)sym->value);
+        StringSetLen(&body, sym->aux);
         return ParseString(body, 0, 0);
     } else if (c == TOK_PROCDEF) {
         Sym *sym;
@@ -766,9 +782,9 @@ ParseStmt(int saveStrings)
             name = DupString(name);
             body = DupString(body);
         }
-        sym = DefineSym(name, PROC, (intptr_t)body.ptr);
+        sym = DefineSym(name, PROC, (intptr_t)StringGetPtr(body));
         if (!sym) return TS_ERR_NOMEM;
-        sym->aux = body.len;
+        sym->aux = StringGetLen(body);
         NextToken();
     } else {
         return TS_ERR_SYNTAX;

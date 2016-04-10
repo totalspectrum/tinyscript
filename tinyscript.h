@@ -3,6 +3,12 @@
 
 #include <stdint.h>
 
+#ifdef __propeller__
+// define SMALL_PTRS to use 16 bits for pointers
+// useful for machines with <= 64KB of RAM
+#define SMALL_PTRS
+#endif
+
 // errors
 // all the ParseXXX functions return 0 on success, a non-zero
 // error code otherwise
@@ -29,9 +35,24 @@ typedef intptr_t Val;
 // substrings directly from the script text, without having
 // to insert 0 into them
 typedef struct {
-    unsigned len;
-    const char *ptr;
+#ifdef SMALL_PTRS
+    uint16_t len_;
+    uint16_t ptr_;
+#else
+    unsigned len_;
+    const char *ptr_;
+#endif
 } String;
+
+static inline unsigned StringGetLen(String s) { return (unsigned)s.len_; }
+static inline const char *StringGetPtr(String s) { return (const char *)(intptr_t)s.ptr_; }
+#ifdef SMALL_PTRS
+static inline void StringSetLen(String *s, unsigned len) { s->len_ = (uint16_t)len; }
+static inline void StringSetPtr(String *s, const char *ptr) { s->ptr_ = (uint16_t)(intptr_t)ptr; }
+#else
+static inline void StringSetLen(String *s, unsigned len) { s->len_ = len; }
+static inline void StringSetPtr(String *s, const char *ptr) { s->ptr_ = ptr; }
+#endif
 
 // symbols can take the following forms:
 #define INT      0x0  // integer
