@@ -2,6 +2,13 @@
 #include <stdlib.h>
 #include "tinyscript.h"
 
+#ifdef __propeller__
+#define ARENA_SIZE 4096
+#else
+#define ARENA_SIZE 8192
+#define MAX_SCRIPT_SIZE 100000
+#endif
+
 int inchar() {
     return getchar();
 }
@@ -9,7 +16,7 @@ void outchar(int c) {
     putchar(c);
 }
 
-#define MAX_SCRIPT_SIZE 100000
+#ifdef MAX_SCRIPT_SIZE
 char script[MAX_SCRIPT_SIZE];
 
 void
@@ -34,6 +41,7 @@ runscript(const char *filename)
     }
     exit(r);
 }
+#endif
 
 // compute a function of two variables
 static Val testfunc(Val x, Val y, Val a, Val b)
@@ -59,22 +67,32 @@ REPL()
     }
 }
 
-char arena[8192];
+char arena[ARENA_SIZE];
 
 int
 main(int argc, char **argv)
 {
-    if (argc > 2) {
-        fprintf(stderr, "Usage: tinyscript [file]\n");
-    }
-    TinyScript_Init(arena, sizeof(arena));
-    TinyScript_Define("dsqr", BUILTIN, (Val)testfunc);
+    int err;
     
+    err = TinyScript_Init(arena, sizeof(arena));
+    err |= TinyScript_Define("dsqr", BUILTIN, (Val)testfunc);
+
+    if (err != 0) {
+        printf("Initialization of interpreter failed!\n");
+        return 1;
+    }
+#ifdef __propeller__
+    REPL();
+#else
+    if (argc > 2) {
+        printf("Usage: tinyscript [file]\n");
+    }
     if (argv[1]) {
         runscript(argv[1]);
     } else {
         REPL();
     }
+#endif
     return 0;
 }
 
