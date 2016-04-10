@@ -1,8 +1,19 @@
 Introduction
 ============
+
 This is tinyscript, a scripting language designed for very tiny
 machines. The initial target is boards using the Parallax Propeller,
-which has 32KB of RAM.
+which has 32KB of RAM, but the code is written in ANSI C so it should
+work on any platform (e.g. testing is done on x86-64 Linux).
+
+On the propeller, the interpreter code needs about 3K of memory in CMM
+mode or 5K in LMM. On the x86-64 the interpreter code is 6K. The size
+of the workspace you give to the interpreter is up to you, although in
+practice it would be not very useful to use less than 2K or RAM. The
+processor stack is used as well, so it will need some space.
+
+tinyscript is copyright 2016 Total Spectrum Software Inc. and released
+under the MIT license. See the COPYING file for details.
 
 The Language
 ============
@@ -90,13 +101,53 @@ Note that any operator may be used as a unary operator, and in this case
 `<op>x` is interpreted as `0 <op> x` for any operator `<op>`. This is useful
 for `+` and `-`, less so for other operators.
 
+Variable Scope
+--------------
+
+Variables are dynamically scoped. For example, in:
+```
+var x=2
+
+proc printx {
+  print x
+}
+proc myfunc {
+  var x=3
+  printx
+}
+```
+invoking `myfunc` will cause 3 to be printed, not 2 as in statically scoped
+languages.
+
 Interface to C
 ==============
 
-The C program must initialize the interpreter with `TinyScript_Init` before
+Environment Requirements
+------------------------
+
+The interpreter is quite self-contained; the only external functions it
+uses are `abort` (called if we run out of memory), `outchar` (called to print
+a single character), and `memcpy`. `outchar` is the only one of these that
+is non-standard. It takes a single int as parameter and print it. This is
+the function the interpreter uses for output e.g. in the `print` statement.
+
+Application Usage
+-----------------
+
+As mentioned above, the function `outchar` must be defined by the application
+to allow for printing. The following definition will work for standard C:
+```
+#include <stdio.h>
+void outchar(int c) { putchar(c); }
+```
+Embedded systems may want to provide a definition that uses the serial port
+or an attached display.
+
+The application must initialize the interpreter with `TinyScript_Init` before
 making any other calls. TinyScript_Init takes two parameters: the base
 of a memory region the interpreter can use, and the size of that region.
-It returns TS_ERR_OK on success, or an error on failure.
+It returns TS_ERR_OK on success, or an error on failure. It is recommended
+to provide at least 2K of space to the interpreter.
 
 If TinyScript_Init succeeds, the application may then define builtin
 symbols with `TinyScript_Define(name, BUILTIN, (Val)func)`, where
