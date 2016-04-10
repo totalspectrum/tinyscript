@@ -59,8 +59,8 @@ typedef Val (*Opfunc)(Val, Val);
 //
 // global interface
 //
-void TinyScript_Init();
-void TinyScript_Define(const char *name, int toktype, Val value);
+void TinyScript_Init(void *mem, int mem_size);
+int TinyScript_Define(const char *name, int toktype, Val value);
 int TinyScript_Run(const char *s, int saveStrings, int topLevel);
 
 // provided by our caller

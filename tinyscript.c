@@ -15,11 +15,11 @@
 #define SYMSTACK_SIZE (2048/sizeof(Sym))
 #define VALSTACK_SIZE (1024/sizeof(Val))
 
-Sym symstack[SYMSTACK_SIZE];
-int symptr;
+static int arena_size;
+static Byte *arena;
 
-Val valstack[VALSTACK_SIZE];
-int valptr;
+static Sym *symptr;
+static Val *valptr;
 
 Val stringeq(String ai, String bi)
 {
@@ -97,12 +97,10 @@ static Sym *
 LookupSym(String name)
 {
     Sym *s;
-    int n;
 
-    n = symptr;
-    while (n > 0) {
-        --n;
-        s = &symstack[n];
+    s = symptr;
+    while ((intptr_t)s > (intptr_t)arena) {
+        --s;
         if (stringeq(s->name, name)) {
             return s;
         }
@@ -325,10 +323,17 @@ static int NextToken() { return doNextToken(0); }
 static int NextRawToken() { return doNextToken(1); }
 
 // push a number on the result stack
+// this stack grows down from the top of the arena
+
 void
 Push(Val x)
 {
-    valstack[valptr++] = x;
+    --valptr;
+    if ((intptr_t)valptr < (intptr_t)symptr) {
+        // out of memory!
+        abort();
+    }
+    *valptr = x;
 }
 
 // pop a number off the result stack
@@ -336,9 +341,8 @@ Val
 Pop()
 {
     Val r = 0;
-    if (valptr > 0) {
-        --valptr;
-        r = valstack[valptr];
+    if ((intptr_t)valptr < (intptr_t)(arena+arena_size)) {
+        r = *valptr++;
     }
     return r;
 }
@@ -363,12 +367,12 @@ StringToNum(String s)
 Sym *
 DefineSym(String name, int typ, Val value)
 {
-    Sym *s;
-    if (symptr == SYMSTACK_SIZE) {
-        //FIXME printf("too many symbols\n");
+    Sym *s = symptr;
+    symptr++;
+    if ( (intptr_t)symptr >= (intptr_t)valptr) {
+        //out of memory
         return NULL;
     }
-    s = &symstack[symptr++];
     s->name = name;
     s->value = value;
     s->type = typ;
@@ -391,10 +395,13 @@ Cstring(const char *str)
     return x;
 }
 
-void
+int
 TinyScript_Define(const char *name, int typ, Val val)
 {
-    DefineSym(Cstring(name), typ, val);
+    Sym *s;
+    s = DefineSym(Cstring(name), typ, val);
+    if (!s) return TS_ERR_NOMEM;
+    return TS_ERR_OK;
 }
 
 extern int ParseExpr();
@@ -717,7 +724,7 @@ int
 ParseString(String str, int saveStrings, int topLevel)
 {
     String savepc = pc;
-    int savesymptr = symptr;
+    Sym* savesymptr = symptr;
     int c;
     int r;
     
@@ -797,10 +804,14 @@ struct def {
 };
 
 void
-TinyScript_Init(void)
+TinyScript_Init(void *mem, int mem_size)
 {
     int i;
 
+    arena = (Byte *)mem;
+    arena_size = mem_size;
+    symptr = (Sym *)arena;
+    valptr = (Val *)(arena + arena_size);
     for (i = 0; defs[i].name; i++) {
         TinyScript_Define(defs[i].name, defs[i].toktype, defs[i].val);
     }

@@ -1,0 +1,12 @@
+fibo(1) = 1
+fibo(2) = 1
+fibo(3) = 2
+fibo(4) = 3
+fibo(5) = 5
+fibo(6) = 8
+fibo(7) = 13
+fibo(8) = 21
+fibo(9) = 34
+fibo(10) = 55
+fibo(11) = 89
+fibo(12) = 144

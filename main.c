@@ -59,13 +59,15 @@ REPL()
     }
 }
 
+char arena[8192];
+
 int
 main(int argc, char **argv)
 {
     if (argc > 2) {
         fprintf(stderr, "Usage: tinyscript [file]\n");
     }
-    TinyScript_Init();
+    TinyScript_Init(arena, sizeof(arena));
     TinyScript_Define("dsqr", BUILTIN, (Val)testfunc);
     
     if (argv[1]) {
