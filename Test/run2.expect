@@ -8,3 +8,6 @@
 8 : 64 usrfunc = 80
 9 : 81 usrfunc = 106
 10 : 100 usrfunc = 125
+global= 99
+global= 123
+global= 99

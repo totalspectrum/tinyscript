@@ -25,6 +25,9 @@ typedef Byte *Ptr;
 typedef intptr_t Val;
 
 // strings are represented as (length,ptr) pairs
+// this is done so that we can re-use variable names and similar
+// substrings directly from the script text, without having
+// to insert 0 into them
 typedef struct {
     unsigned len;
     const char *ptr;
@@ -43,8 +46,9 @@ typedef struct {
 
 typedef struct symbol {
     String name;
-    Val    value;  // symbol value
     int    type;   // symbol type
+    Val    value;  // symbol value, or string ptr
+    Val    aux;    // string len for string values
 } Sym;
 
 #define MAX_BUILTIN_PARAMS 4

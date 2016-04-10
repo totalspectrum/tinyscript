@@ -8,3 +8,21 @@ while i<=10 {
   print i, " : ", i*i, " usrfunc = ", dsqr(i, z)
   i=i+1
 }
+
+#
+# test procedures
+#
+var global=99
+
+proc printglobal {
+    print "global= ", global
+}
+proc myfunc {
+    var global=123
+    printglobal
+}
+
+printglobal
+myfunc
+printglobal
+

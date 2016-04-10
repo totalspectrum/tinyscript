@@ -14,7 +14,7 @@ do
     j=`basename $i .ts`
     echo $i ":" $j
     $PROG $i > $j.txt
-    if diff -ub $j.txt $j.expect
+    if diff -ub $j.expect $j.txt
     then
 	echo $j passed
 	rm -f $j.txt

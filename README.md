@@ -10,16 +10,16 @@ The scripting language itself is pretty minimalistic. The grammar for it
 looks like:
 
     <program> ::= <stmt> | <stmt><sep><program>
-    <stmt> ::= <vardecl> | <subrdecl> |
+    <stmt> ::= <vardecl> | <procdecl> |
                | <assignment> | <ifstmt>
-               | <whilestmt> | <subrcall>
+               | <whilestmt> | <proccall>
                | <printstmt> | <builtincall>
 
 The statements in a program are separated by newlines or ';'.
 
-Either variables or subroutines may be declared.
+Either variables or procedures may be declared.
 
-    <subrdecl> ::= "subr" <symbol> <string>
+    <procdecl> ::= "proc" <symbol> <string>
     <vardecl> ::= "var" <assignment>
     <assignment> ::= <symbol> "=" <expr>
 
@@ -28,13 +28,13 @@ simply hold 32 bit quantities, normally interpreted as an integer.
 The symbol in an assignment outside of a vardecl must already have
 been declared.
 
-Subroutines point to a string. When a subroutine is called, the string
+Procedures point to a string. When a procedure is called, the string
 is interpreted as a script (so at that time it is parsed using the
-language grammar). If a subroutine is never called then it is never
+language grammar). If a procedure is never called then it is never
 parsed, so it need not contain legal code if it is not called.
 
 Strings may be enclosed either in double quotes or between { and }.
-The latter case is more useful for subroutines and similar code uses,
+The latter case is more useful for procedures and similar code uses,
 since the brackets nest. Also note that it is legal for newlines to
 appear in {} strings, but not in strings enclosed by ".
 
@@ -65,8 +65,6 @@ by a unary operator:
     <exprlist> ::= <expr> ["," <expr>]*
 
 
-Builtin functions are defined by the runtime.
-
     <expr1> ::= <expr0> [<binop1> <expr0>]*
     <binop1> ::= "*" | "/"
 
@@ -79,6 +77,39 @@ Builtin functions are defined by the runtime.
     <expr4> ::= <expr3> [<binop4><expr4>]*
     <binop4> ::= "==" | "<>" | ">" | "<" | ">=" | "<="
 
-    <unaryop> ::= <binop2>
+    <unaryop> ::= <binop1> | <binop2> | <binop3> | <binop4>
 
-The runtime system may choose to create new operators at any of these levels.
+Builtin functions are defined by the runtime, as are operators. The ones
+listed above are merely the ones defined by default. Operators may use
+any of the characters =<>+-*/&|^. Note that any string of these characters
+is processed together, so for example `a*-b` is parsed as `a` `*-` `b`,
+which will cause a syntax error, rather than as `a*(-b)`. The latter may
+be achieved by putting a space between the `*` and the `-`.
+
+Note that any operator may be used as a unary operator, and in this case
+`<op>x` is interpreted as `0 <op> x` for any operator `<op>`. This is useful
+for `+` and `-`, less so for other operators.
+
+Interface to C
+==============
+
+The C program must initialize the interpreter with `TinyScript_Init` before
+making any other calls. It may then define builtin symbols with
+`TinyScript_Define(name, BUILTIN, (Val)func)`, where "name" is the name of the
+symbol in scripts and "func" is the C function. Technically the function
+should have prototype:
+
+    Val func(Val a, Val b, Val c, Val d)
+
+However, most C compiler calling conventions are such that any C function
+(other than varargs ones) will work. On the script side, the interpreter
+will supply 0 for any arguments the user does not supply, and will silently
+ignore arguments given beyond the fourth.
+
+To run a script, use `TinyScript_Run(script, saveStrings, topLevel)`. Here
+"script" is a C string, "saveStrings" is 1 if any variable names created
+in the script need to be saved in newly allocated memory (this is necessary
+if the space "script" is stored in may later be overwritten, e.g. in
+a REPL loop by new commands typed by the user. "topLevel" is 1 if the
+variables created by the script should be kept after it finishes.
+

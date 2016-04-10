@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include "tinyscript.h"
 
-#define SYMSTACK_SIZE (1024/sizeof(Sym))
+#define SYMSTACK_SIZE (2048/sizeof(Sym))
 #define VALSTACK_SIZE (1024/sizeof(Val))
 
 Sym symstack[SYMSTACK_SIZE];
@@ -39,12 +39,12 @@ Val stringeq(String ai, String bi)
     return 1;
 }
 
-String pc;  // instruction pointer
+static String pc;  // instruction pointer
 
 //
 // Utility functions
 //
-void
+static void
 PrintString(String s)
 {
     int len = s.len;
@@ -62,7 +62,7 @@ Newline(void)
     outchar('\n');
 }
 
-void
+static void
 PrintNumber(Val v)
 {
     unsigned long x;
@@ -93,7 +93,7 @@ PrintNumber(Val v)
 }
 
 // look up a symbol by name
-Sym *
+static Sym *
 LookupSym(String name)
 {
     Sym *s;
@@ -123,10 +123,10 @@ LookupSym(String name)
 #define TOK_PRINT  'p'
 #define TOK_VAR    'v'
 #define TOK_VARDEF 'V'
-#define TOK_FUNC   'f'
+#define TOK_PROC   'f'
 #define TOK_BUILTIN 'B'
 #define TOK_BINOP  'o'
-#define TOK_FUNCDEF 'F'
+#define TOK_PROCDEF 'F'
 #define TOK_SYNTAX_ERR 'Z'
 
 // fetch the next token
@@ -143,7 +143,7 @@ static void ResetToken()
 //
 // get next character from the program counter
 // returns -1 on end of file
-int
+static int
 GetChar()
 {
     int c;
@@ -156,7 +156,7 @@ GetChar()
     return c;
 }
 
-void
+static void
 IgnoreLastChar()
 {
     token.len--;
@@ -165,7 +165,7 @@ IgnoreLastChar()
 // undo last getchar
 // (except at end of input)
 //
-void
+static void
 UngetChar()
 {
     pc.len++;
@@ -267,7 +267,7 @@ doNextToken(int israw)
                 if (sym->type == TOKEN) {
                     r = sym->value;
                 } else if (sym->type == PROC) {
-                    r = TOK_FUNC;
+                    r = TOK_PROC;
                 } else if (sym->type == BUILTIN) {
                     r = TOK_BUILTIN;
                 } else {
@@ -321,8 +321,8 @@ doNextToken(int israw)
     return r;
 }
 
-int NextToken() { return doNextToken(0); }
-int NextRawToken() { return doNextToken(1); }
+static int NextToken() { return doNextToken(0); }
+static int NextRawToken() { return doNextToken(1); }
 
 // push a number on the result stack
 void
@@ -375,7 +375,7 @@ DefineSym(String name, int typ, Val value)
     return s;
 }
 
-Sym *
+static Sym *
 DefineVar(String name)
 {
     return DefineSym(name, INT, 0);
@@ -613,13 +613,15 @@ ParseStmt(int saveStrings)
     if (c == TOK_VARDEF) {
         // a definition var a=x
         c=NextRawToken(); // we want to get VAR_SYMBOL directly
-        if (c != TOK_SYMBOL) return 0;
+        if (c != TOK_SYMBOL) return TS_ERR_SYNTAX;
         if (saveStrings) {
             name = DupString(token);
         } else {
             name = token;
         }
-        DefineVar(name);
+        if (!DefineVar(name)) {
+            return TS_ERR_NOMEM;
+        }
         c = TOK_VAR;
     }
     if (c == TOK_VAR) {
@@ -676,6 +678,35 @@ ParseStmt(int saveStrings)
             goto again;
         }
         return err;
+    } else if (c == TOK_PROC) {
+        Sym *sym = LookupSym(token);
+        String body;
+        if (!sym) return TS_ERR_SYNTAX;
+        body.ptr = (const char *)sym->value;
+        body.len = sym->aux;
+        return ParseString(body, 0, 0);
+    } else if (c == TOK_PROCDEF) {
+        Sym *sym;
+        String name;
+        String body;
+        c = NextRawToken(); // do not interpret the symbol
+        if (c != TOK_SYMBOL) return TS_ERR_SYNTAX;
+        name = token;
+        c = NextToken();
+        if (c != TOK_STRING) return TS_ERR_SYNTAX;
+        body = token;
+        // FIXME here is where things get tricky: we have to
+        // save a pointer to the string into the Sym
+        // on small machines pack them together
+        // on large ones, use an "aux" field
+        if (saveStrings) {
+            name = DupString(name);
+            body = DupString(body);
+        }
+        sym = DefineSym(name, PROC, (intptr_t)body.ptr);
+        if (!sym) return TS_ERR_NOMEM;
+        sym->aux = body.len;
+        NextToken();
     } else {
         return TS_ERR_SYNTAX;
     }
@@ -744,7 +775,7 @@ struct def {
     { "while", TOKEN, TOK_WHILE },
     { "print", TOKEN, TOK_PRINT },
     { "var",   TOKEN, TOK_VARDEF },
-    { "proc",  TOKEN, TOK_FUNCDEF },
+    { "proc",  TOKEN, TOK_PROCDEF },
     // operators
     { "*",     BINOP(1), (intptr_t)prod },
     { "/",     BINOP(1), (intptr_t)quot },
