@@ -20,6 +20,13 @@ static Byte *arena;
 
 static Sym *symptr;
 static Val *valptr;
+static String pc;  // instruction pointer
+
+// fetch the next token
+static int curToken;
+static String token;
+static Val tokenVal;
+
 
 Val stringeq(String ai, String bi)
 {
@@ -38,8 +45,6 @@ Val stringeq(String ai, String bi)
     }
     return 1;
 }
-
-static String pc;  // instruction pointer
 
 //
 // Utility functions
@@ -127,11 +132,6 @@ LookupSym(String name)
 #define TOK_PROCDEF 'F'
 #define TOK_SYNTAX_ERR 'Z'
 
-// fetch the next token
-int curToken;
-String token;
-Val tokenVal;
-
 static void ResetToken()
 {
     token.len = 0;
@@ -208,12 +208,12 @@ static int isidentifier(int c)
     return isalpha(c) || isidpunct(c);
 }
 
-int notquote(int c)
+static int notquote(int c)
 {
     return (c >= 0) && !charin(c, "\"\n");
 }
 
-void
+static void
 GetSpan(int (*testfn)(int))
 {
     int c;
@@ -510,7 +510,7 @@ ParseExpr0()
 
 // parse a level n expression
 // level 0 is the lowest level
-int
+static int
 ParseExprLevel(int n)
 {
     int err = TS_ERR_OK;
@@ -579,13 +579,13 @@ DupString(String orig)
     return x;
 }
 
-int ParseString(String str, int saveStrings, int topLevel);
+static int ParseString(String str, int saveStrings, int topLevel);
 
 //
 // this is slightly different in that it may return the non-erro TS_ERR_ELSE
 // to signify that the condition was false
 //
-int ParseIf()
+static int ParseIf()
 {
     String ifpart, elsepart;
     int haveelse = 0;
@@ -628,7 +628,7 @@ int ParseIf()
 // 1 is true if we need to save strings we encounter (we've been passed
 // a temporary string)
 //
-int
+static int
 ParseStmt(int saveStrings)
 {
     int c;
@@ -692,8 +692,9 @@ ParseStmt(int saveStrings)
         Newline();
     } else if (c == TOK_IF) {
         err = ParseIf();
-        if (err == TS_ERR_OK_ELSE)
+        if (err == TS_ERR_OK_ELSE) {
             err = TS_ERR_OK;
+        }
     } else if (c == TOK_WHILE) {
         String savepc;
         savepc = pc;
@@ -704,6 +705,12 @@ ParseStmt(int saveStrings)
         } else if (err == TS_ERR_OK) {
             pc = savepc;
             goto again;
+        }
+        return err;
+    } else if (c == TOK_BUILTIN) {
+        err = ParseExpr0();
+        if (err == TS_ERR_OK) {
+            (void)Pop(); // fix up the stack
         }
         return err;
     } else if (c == TOK_PROC) {
@@ -741,7 +748,7 @@ ParseStmt(int saveStrings)
     return TS_ERR_OK;
 }
 
-int
+static int
 ParseString(String str, int saveStrings, int topLevel)
 {
     String savepc = pc;
@@ -792,7 +799,7 @@ static Val le(Val x, Val y) { return x<=y; }
 static Val gt(Val x, Val y) { return x>y; }
 static Val ge(Val x, Val y) { return x>=y; }
 
-struct def {
+static struct def {
     const char *name;
     int toktype;
     intptr_t val;

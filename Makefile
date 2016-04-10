@@ -1,5 +1,6 @@
+OPTS=-g -Og
 CC=gcc
-CFLAGS=-g -Og -Wall
+CFLAGS=$(OPTS) -Wall
 
 OBJS=main.o tinyscript.o
 
