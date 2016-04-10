@@ -92,7 +92,7 @@ by a unary operator:
 
 Builtin functions are defined by the runtime, as are operators. The ones
 listed above are merely the ones defined by default. Operators may use
-any of the characters =<>+-*/&|^. Note that any string of these characters
+any of the characters `=<>+-*/&|^`. Note that any string of these characters
 is processed together, so for example `a*-b` is parsed as `a` `*-` `b`,
 which will cause a syntax error, rather than as `a*(-b)`. The latter may
 be achieved by putting a space between the `*` and the `-`.
