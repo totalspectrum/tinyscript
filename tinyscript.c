@@ -828,14 +828,16 @@ int
 TinyScript_Init(void *mem, int mem_size)
 {
     int i;
-
+    int err;
+    
     arena = (Byte *)mem;
     arena_size = mem_size;
     symptr = (Sym *)arena;
     valptr = (Val *)(arena + arena_size);
     for (i = 0; defs[i].name; i++) {
-        if (!TinyScript_Define(defs[i].name, defs[i].toktype, defs[i].val))
-            return TS_ERR_NOMEM;
+        err = TinyScript_Define(defs[i].name, defs[i].toktype, defs[i].val);
+        if (err != TS_ERR_OK)
+            return err;
     }
     return TS_ERR_OK;
 }
