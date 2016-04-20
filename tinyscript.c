@@ -800,14 +800,9 @@ ParseStmt(int saveStrings)
         StringSetPtr(&body, (const char *)sym->value);
         StringSetLen(&body, sym->aux);
         return ParseString(body, 0, 0);
-    } else if (c == TOK_PROCDEF) {
-        return ParseProcDef(saveStrings);
-    } else if (c == TOK_PRINT) {
-        err = ParsePrint(saveStrings);
-    } else if (c == TOK_IF) {
-        err = ParseIf(saveStrings);
-    } else if (c == TOK_WHILE) {
-        err = ParseWhile(saveStrings);
+    } else if (tokenSym && tokenVal) {
+        int (*func)(int) = (void *)tokenVal;
+        err = (*func)(saveStrings);
     } else {
         return TS_ERR_SYNTAX;
     }
@@ -874,12 +869,12 @@ static struct def {
     intptr_t val;
 } defs[] = {
     // keywords
-    { "if",    TOK_IF, 0 },
+    { "if",    TOK_IF, (intptr_t)ParseIf },
     { "else",  TOK_ELSE, 0 },
-    { "while", TOK_WHILE, 0 },
-    { "print", TOK_PRINT, 0 },
+    { "while", TOK_WHILE, (intptr_t)ParseWhile },
+    { "print", TOK_PRINT, (intptr_t)ParsePrint },
     { "var",   TOK_VARDEF, 0 },
-    { "proc",  TOK_PROCDEF, 0 },
+    { "proc",  TOK_PROCDEF, (intptr_t)ParseProcDef },
     // operators
     { "*",     BINOP(1), (intptr_t)prod },
     { "/",     BINOP(1), (intptr_t)quot },

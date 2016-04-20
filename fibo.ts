@@ -8,15 +8,15 @@
 var n=0
 var r=0
 proc fibo {
-  if (n<2) {
-    r=n
-  } else {
-    var saven=n  # save our parameter for recursive call
-    var a=0
-    n=n-1; fibo; a=r
-    n=saven-2; fibo; r=a+r
-    n=saven
-  }
+if (n<2){
+r=n
+}else{
+var s=n  # save our parameter for recursive call
+var a=0
+n=n-1;fibo;a=r
+n=s-2;fibo;r=a+r
+n=s
+}
 }
 
 # convert cycles to milliseconds
@@ -27,7 +27,7 @@ proc calcms {
 var i=1
 var cycles=0
 var ms=0
-while i<=12 {
+while i<=8 {
   cycles=getcnt()
   n=i; fibo
   cycles=getcnt()-cycles
