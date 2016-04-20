@@ -54,6 +54,7 @@ static String pc;  // instruction pointer
 static int curToken;  // what kind of token is current
 static String token;  // the actual string representing the token
 static Val tokenVal;  // for symbolic tokens, the symbol's value
+static Sym *tokenSym;
 
 // compare two Strings for equality
 Val stringeq(String ai, String bi)
@@ -159,7 +160,6 @@ LookupSym(String name)
 #define TOK_PRINT  'p'
 #define TOK_VAR    'v'
 #define TOK_VARDEF 'V'
-#define TOK_PROC   'f'
 #define TOK_BUILTIN 'B'
 #define TOK_BINOP  'o'
 #define TOK_PROCDEF 'F'
@@ -277,7 +277,9 @@ doNextToken(int israw)
 {
     int c;
     int r = -1;
+    Sym *sym = NULL;
     
+    tokenSym = NULL;
     ResetToken();
     for(;;) {
         c = GetChar();
@@ -298,29 +300,21 @@ doNextToken(int israw)
         GetSpan(isdigit);
         r = TOK_NUMBER;
     } else if ( isalpha(c) ) {
-        Sym *sym;
         GetSpan(isidentifier);
         r = TOK_SYMBOL;
         // check for special tokens
         if (!israw) {
-            sym = LookupSym(token);
+            tokenSym = sym = LookupSym(token);
             if (sym) {
-                if (sym->type == TOKEN) {
-                    r = sym->value;
-                } else if (sym->type == PROC) {
-                    r = TOK_PROC;
-                } else if (sym->type == BUILTIN) {
-                    r = TOK_BUILTIN;
-                } else {
+                r = sym->type;
+                if (r < '@')
                     r = TOK_VAR;
-                }
                 tokenVal = sym->value;
             }
         }
     } else if (isoperator(c)) {
-        Sym *sym;
         GetSpan(isoperator);
-        sym = LookupSym(token);
+        tokenSym = sym = LookupSym(token);
         if (sym && (sym->type&0xff) == OPERATOR) {
             r = TOK_BINOP | (sym->type & 0xff00);
             tokenVal = sym->value;
@@ -667,6 +661,80 @@ static int ParseIf()
     return err;
 }
 
+static int
+ParseProcDef(int saveStrings)
+{
+    Sym *sym;
+    String name;
+    String body;
+    int c;
+    
+    c = NextRawToken(); // do not interpret the symbol
+    if (c != TOK_SYMBOL) return TS_ERR_SYNTAX;
+    name = token;
+    c = NextToken();
+    if (c != TOK_STRING) return TS_ERR_SYNTAX;
+    body = token;
+    // here is where things get tricky: we have to
+    // save a pointer to the string into the Sym
+    // on small machines pack them together
+    // on large ones, use an "aux" field
+    if (saveStrings) {
+        name = DupString(name);
+        body = DupString(body);
+    }
+    sym = DefineSym(name, PROC, (intptr_t)StringGetPtr(body));
+    if (!sym) return TS_ERR_NOMEM;
+    sym->aux = StringGetLen(body);
+    NextToken();
+    return TS_ERR_OK;
+}
+
+// handle print statement
+static int
+ParsePrint()
+{
+    int c;
+    int err = TS_ERR_OK;
+
+print_more:
+    c = NextToken();
+    if (c == TOK_STRING) {
+        PrintString(token);
+        NextToken();
+    } else {
+        Val val;
+        err = ParseExpr();
+        if (err != TS_ERR_OK) {
+            return err;
+        }
+        val = Pop();
+        PrintNumber(val);
+    }
+    if (curToken == ',') {
+        goto print_more;
+    }
+    Newline();
+    return err;
+}
+
+static int
+ParseWhile()
+{
+    int err;
+    String savepc = pc;
+
+again:
+    err = ParseIf();
+    if (err == TS_ERR_OK_ELSE) {
+        return TS_ERR_OK;
+    } else if (err == TS_ERR_OK) {
+        pc = savepc;
+        goto again;
+    }
+    return err;
+}
+
 //
 // parse one statement
 // 1 is true if we need to save strings we encounter (we've been passed
@@ -678,7 +746,7 @@ ParseStmt(int saveStrings)
     int c;
     String name;
     Val val;
-    int err;
+    int err = TS_ERR_OK;
     
     c = curToken;
     
@@ -691,20 +759,26 @@ ParseStmt(int saveStrings)
         } else {
             name = token;
         }
-        if (!DefineVar(name)) {
+        tokenSym = DefineVar(name);
+        if (!tokenSym) {
             return TS_ERR_NOMEM;
         }
         c = TOK_VAR;
+        /* fall through */
     }
     if (c == TOK_VAR) {
         // is this a=expr?
         Sym *s;
         name = token;
+        s = tokenSym;
         c = NextToken();
         // we expect the "=" operator
         // verify that it is "="
         if (StringGetPtr(token)[0] != '=' || StringGetLen(token) != 1) {
             return TS_ERR_SYNTAX;
+        }
+        if (!s) {
+            return TS_ERR_UNKNOWN_SYM; // unknown symbol
         }
         NextToken();
         err = ParseExpr();
@@ -712,84 +786,35 @@ ParseStmt(int saveStrings)
             return err;
         }
         val = Pop();
-        s = LookupSym(name);
-        if (!s) {
-            return TS_ERR_UNKNOWN_SYM; // unknown symbol
-        }
         s->value = val;
-    } else if (c == TOK_PRINT) {
-    print_more:
-        c = NextToken();
-        if (c == TOK_STRING) {
-            PrintString(token);
-            NextToken();
-        } else {
-            err = ParseExpr();
-            if (err != TS_ERR_OK) {
-                return err;
-            }
-            val = Pop();
-            PrintNumber(val);
-        }
-        if (curToken == ',')
-            goto print_more;
-        Newline();
-    } else if (c == TOK_IF) {
-        err = ParseIf();
-        if (err == TS_ERR_OK_ELSE) {
-            err = TS_ERR_OK;
-        }
-    } else if (c == TOK_WHILE) {
-        String savepc;
-        savepc = pc;
-    again:
-        err = ParseIf();
-        if (err == TS_ERR_OK_ELSE) {
-            return TS_ERR_OK;
-        } else if (err == TS_ERR_OK) {
-            pc = savepc;
-            goto again;
-        }
-        return err;
     } else if (c == TOK_BUILTIN) {
         err = ParseExpr0();
         if (err == TS_ERR_OK) {
             (void)Pop(); // fix up the stack
         }
         return err;
-    } else if (c == TOK_PROC) {
-        Sym *sym = LookupSym(token);
+    } else if (c == PROC) {
+        Sym *sym = tokenSym;
         String body;
         if (!sym) return TS_ERR_SYNTAX;
         StringSetPtr(&body, (const char *)sym->value);
         StringSetLen(&body, sym->aux);
         return ParseString(body, 0, 0);
     } else if (c == TOK_PROCDEF) {
-        Sym *sym;
-        String name;
-        String body;
-        c = NextRawToken(); // do not interpret the symbol
-        if (c != TOK_SYMBOL) return TS_ERR_SYNTAX;
-        name = token;
-        c = NextToken();
-        if (c != TOK_STRING) return TS_ERR_SYNTAX;
-        body = token;
-        // FIXME here is where things get tricky: we have to
-        // save a pointer to the string into the Sym
-        // on small machines pack them together
-        // on large ones, use an "aux" field
-        if (saveStrings) {
-            name = DupString(name);
-            body = DupString(body);
-        }
-        sym = DefineSym(name, PROC, (intptr_t)StringGetPtr(body));
-        if (!sym) return TS_ERR_NOMEM;
-        sym->aux = StringGetLen(body);
-        NextToken();
+        return ParseProcDef(saveStrings);
+    } else if (c == TOK_PRINT) {
+        err = ParsePrint(saveStrings);
+    } else if (c == TOK_IF) {
+        err = ParseIf(saveStrings);
+    } else if (c == TOK_WHILE) {
+        err = ParseWhile(saveStrings);
     } else {
         return TS_ERR_SYNTAX;
     }
-    return TS_ERR_OK;
+    if (err == TS_ERR_OK_ELSE) {
+        err = TS_ERR_OK;
+    }
+    return err;
 }
 
 static int
@@ -849,12 +874,12 @@ static struct def {
     intptr_t val;
 } defs[] = {
     // keywords
-    { "if",    TOKEN, TOK_IF },
-    { "else",  TOKEN, TOK_ELSE },
-    { "while", TOKEN, TOK_WHILE },
-    { "print", TOKEN, TOK_PRINT },
-    { "var",   TOKEN, TOK_VARDEF },
-    { "proc",  TOKEN, TOK_PROCDEF },
+    { "if",    TOK_IF, 0 },
+    { "else",  TOK_ELSE, 0 },
+    { "while", TOK_WHILE, 0 },
+    { "print", TOK_PRINT, 0 },
+    { "var",   TOK_VARDEF, 0 },
+    { "proc",  TOK_PROCDEF, 0 },
     // operators
     { "*",     BINOP(1), (intptr_t)prod },
     { "/",     BINOP(1), (intptr_t)quot },

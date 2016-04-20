@@ -57,10 +57,9 @@ static inline void StringSetPtr(String *s, const char *ptr) { s->ptr_ = ptr; }
 // symbols can take the following forms:
 #define INT      0x0  // integer
 #define STRING   0x1  // string
-#define PROC     0x2  // scripting procedure
-#define TOKEN    0x3  // language token
-#define OPERATOR 0x4  // operator; precedence in high 8 bits
-#define BUILTIN  0x5  // builtin: number of operands in high 8 bits
+#define OPERATOR 0x2  // operator; precedence in high 8 bits
+#define BUILTIN  'B'  // builtin: number of operands in high 8 bits
+#define PROC     'f'  // a procedure
 
 #define BINOP(x) (((x)<<8)+OPERATOR)
 #define CFUNC(x) (((x)<<8)+BUILTIN)
