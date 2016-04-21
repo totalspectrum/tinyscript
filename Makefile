@@ -8,7 +8,7 @@ tstest: $(OBJS)
 	$(CC) $(CFLAGS) -o tstest $(OBJS)
 
 clean:
-	rm -f *.o
+	rm -f *.o *.elf
 
 test: tstest
 	(cd Test; ./runtests.sh)
