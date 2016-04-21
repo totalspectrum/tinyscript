@@ -7,7 +7,7 @@
 #define ARENA_SIZE 2048
 
 int inchar() {
-    return getchar();
+    return -1;
 }
 void outchar(int c) {
     putchar(c);
@@ -69,7 +69,7 @@ main(int argc, char **argv)
     }
     err = TinyScript_Run(fibo_ts, 0, 0);
     if (err) {
-        printf("error %d\n", err);
+        printf("error\n");
     } else {
         printf("ok\n");
     }
