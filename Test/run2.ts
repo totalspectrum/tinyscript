@@ -14,10 +14,10 @@ while i<=10 {
 #
 var global=99
 
-proc printglobal {
+func printglobal {
     print "global= ", global
 }
-proc myfunc {
+func myfunc() {
     var global=123
     printglobal
 }

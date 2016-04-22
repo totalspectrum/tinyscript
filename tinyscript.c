@@ -162,7 +162,7 @@ LookupSym(String name)
 #define TOK_VARDEF 'V'
 #define TOK_BUILTIN 'B'
 #define TOK_BINOP  'o'
-#define TOK_PROCDEF 'F'
+#define TOK_FUNCDEF 'F'
 #define TOK_SYNTAX_ERR 'Z'
 
 static void ResetToken()
@@ -671,17 +671,34 @@ static int ParseIf()
 }
 
 static int
-ParseProcDef(int saveStrings)
+ParseVarList()
+{
+    int c;
+    c = NextToken();
+    if (c != ')') {
+        return TS_ERR_SYNTAX;
+    }
+    return TS_ERR_OK;
+}
+
+static int
+ParseFuncDef(int saveStrings)
 {
     Sym *sym;
     String name;
     String body;
     int c;
+    int err;
     
     c = NextRawToken(); // do not interpret the symbol
     if (c != TOK_SYMBOL) return TS_ERR_SYNTAX;
     name = token;
     c = NextToken();
+    if (c == '(') {
+        err = ParseVarList();
+        if (err != TS_ERR_OK) return err;
+        c = NextToken();
+    }
     if (c != TOK_STRING) return TS_ERR_SYNTAX;
     body = token;
     // here is where things get tricky: we have to
@@ -878,7 +895,7 @@ static struct def {
     { "while", TOK_WHILE, (intptr_t)ParseWhile },
     { "print", TOK_PRINT, (intptr_t)ParsePrint },
     { "var",   TOK_VARDEF, 0 },
-    { "proc",  TOK_PROCDEF, (intptr_t)ParseProcDef },
+    { "func",  TOK_FUNCDEF, (intptr_t)ParseFuncDef },
     // operators
     { "*",     BINOP(1), (intptr_t)prod },
     { "/",     BINOP(1), (intptr_t)quot },

@@ -21,7 +21,7 @@ The scripting language itself is pretty minimalistic. The grammar for it
 looks like:
 
     <program> ::= <stmt> | <stmt><sep><program>
-    <stmt> ::= <vardecl> | <procdecl> |
+    <stmt> ::= <vardecl> | <funcdecl> |
                | <assignment> | <ifstmt>
                | <whilestmt> | <proccall>
                | <printstmt> | <builtincall>
@@ -30,10 +30,11 @@ The statements in a program are separated by newlines or ';'.
 
 Either variables or procedures may be declared.
 
-    <procdecl> ::= "proc" <symbol> <string>
+    <funcdecl> ::= "func" <symbol> "(" <varlist> ")" <string>
     <vardecl> ::= "var" <assignment>
     <assignment> ::= <symbol> "=" <expr>
-
+    <varlist> ::= <symbol> [ "," <symbol> ]+
+    
 Variables must always be given a value when declared. All variables
 simply hold 32 bit quantities, normally interpreted as an integer.
 The symbol in an assignment outside of a vardecl must already have
@@ -60,7 +61,7 @@ implementation, it is permitted to add an "else" clause to a while statement;
 any such clause will always be executed after the loop exits.
 
     <subrcall> ::= <symbol>
-    <printstmt> ::= "print" <printitem> [ "," <printitem>]*
+    <printstmt> ::= "print" <printitem> [ "," <printitem>]+
     <printitem> ::= <string> | <expr>
 
 Expressions are built up from symbols, numbers, and operators. The
@@ -108,10 +109,10 @@ Variables are dynamically scoped. For example, in:
 ```
 var x=2
 
-proc printx {
+func printx() {
   print x
 }
-proc myfunc {
+func myfunc() {
   var x=3
   printx
 }

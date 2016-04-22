@@ -7,7 +7,7 @@
 # returns result in r
 var n=0
 var r=0
-proc fibo {
+func fibo() {
   if (n<2) {
     r=n
   } else {
