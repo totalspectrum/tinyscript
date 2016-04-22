@@ -75,10 +75,8 @@ static Val pinin_fn(Val pin)
 #else
 // compute a function of two variables
 // used for testing scripts
-static Val testfunc(Val x, Val y, Val a, Val b)
+static Val testfunc(Val x, Val y)
 {
-    (void)a;
-    (void)b;
     return x*x + y*y;
 }
 #endif
@@ -86,14 +84,15 @@ static Val testfunc(Val x, Val y, Val a, Val b)
 struct def {
     const char *name;
     intptr_t val;
+    int nargs;
 } defs[] = {
 #ifdef __propeller__
-    { "getcnt",    (intptr_t)getcnt_fn },
-    { "pinout",    (intptr_t)pinout_fn },
-    { "pinin",     (intptr_t)pinin_fn },
-    { "waitcnt",   (intptr_t)waitcnt_fn },
+    { "getcnt",    (intptr_t)getcnt_fn, 0 },
+    { "waitcnt",   (intptr_t)waitcnt_fn, 1 },
+    { "pinout",    (intptr_t)pinout_fn,  2 },
+    { "pinin",     (intptr_t)pinin_fn, 1 },
 #else
-    { "dsqr",      (intptr_t)testfunc },
+    { "dsqr",      (intptr_t)testfunc, 2 },
 #endif
     { NULL, 0 }
 };
@@ -124,7 +123,7 @@ main(int argc, char **argv)
     
     err = TinyScript_Init(arena, sizeof(arena));
     for (i = 0; defs[i].name; i++) {
-        err |= TinyScript_Define(defs[i].name, BUILTIN, defs[i].val);
+        err |= TinyScript_Define(defs[i].name, CFUNC(defs[i].nargs), defs[i].val);
     }
     if (err != 0) {
         printf("Initialization of interpreter failed!\n");

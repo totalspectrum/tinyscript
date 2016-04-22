@@ -10,13 +10,15 @@
 #endif
 
 // errors
-// all the ParseXXX functions return 0 on success, a non-zero
+// all the ParseXXX functions return 0 on success, a negative
 // error code otherwise
 enum {
     TS_ERR_OK = 0,
     TS_ERR_NOMEM = -1,
     TS_ERR_SYNTAX = -2,
     TS_ERR_UNKNOWN_SYM = -3,
+    TS_ERR_BADARGS = -4,
+    
     TS_ERR_OK_ELSE = 1, // special internal condition
 };
 
@@ -26,9 +28,6 @@ typedef char Byte;
 //our target is machines with < 64KB of memory, so 16 bit pointers
 //will do
 typedef Byte *Ptr;
-
-// val has to be able to hold a pointer
-typedef intptr_t Val;
 
 // strings are represented as (length,ptr) pairs
 // this is done so that we can re-use variable names and similar
@@ -43,6 +42,9 @@ typedef struct {
     const char *ptr_;
 #endif
 } String;
+
+// val has to be able to hold a pointer
+typedef intptr_t Val;
 
 static inline unsigned StringGetLen(String s) { return (unsigned)s.len_; }
 static inline const char *StringGetPtr(String s) { return (const char *)(intptr_t)s.ptr_; }
@@ -59,7 +61,7 @@ static inline void StringSetPtr(String *s, const char *ptr) { s->ptr_ = ptr; }
 #define STRING   0x1  // string
 #define OPERATOR 0x2  // operator; precedence in high 8 bits
 #define BUILTIN  'B'  // builtin: number of operands in high 8 bits
-#define PROC     'f'  // a procedure
+#define PROC     'f'  // user defined a procedure; number of operands in high 8 bits
 
 #define BINOP(x) (((x)<<8)+OPERATOR)
 #define CFUNC(x) (((x)<<8)+BUILTIN)

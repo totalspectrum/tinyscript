@@ -52,6 +52,7 @@ static String pc;  // instruction pointer
 
 // fetch the next token
 static int curToken;  // what kind of token is current
+static int tokenArgs; // number of arguments for this token
 static String token;  // the actual string representing the token
 static Val tokenVal;  // for symbolic tokens, the symbol's value
 static Sym *tokenSym;
@@ -84,7 +85,7 @@ void
 PrintString(String s)
 {
     unsigned len = StringGetLen(s);
-    const Byte *ptr = StringGetPtr(s);
+    const char *ptr = (const char *)StringGetPtr(s);
     while (len > 0) {
         outchar(*ptr);
         ptr++;
@@ -147,6 +148,33 @@ LookupSym(String name)
     return NULL;
 }
 
+static void
+outcstr(const char *ptr)
+{
+    while (*ptr) {
+        outchar(*ptr++);
+    }
+}
+
+//
+// some functions to print an error and return
+//
+static int SyntaxError() {
+    outcstr("syntax error\n");
+    return TS_ERR_SYNTAX;
+}
+static int ArgMismatch() {
+    outcstr("argument mismatch\n");
+    return TS_ERR_BADARGS;
+}
+static int OutOfMem() {
+    outcstr("out of memory\n");
+    return TS_ERR_NOMEM;
+}
+static int UnknownSymbol() {
+    outcstr(": unknown symbol\n");
+    return TS_ERR_UNKNOWN_SYM;
+}
 //
 // parse an expression or statement
 //
@@ -306,7 +334,8 @@ doNextToken(int israw)
         if (!israw) {
             tokenSym = sym = LookupSym(token);
             if (sym) {
-                r = sym->type;
+                r = sym->type & 0xff;
+                tokenArgs = (sym->type >> 8) & 0xff;
                 if (r < '@')
                     r = TOK_VAR;
                 tokenVal = sym->value;
@@ -441,16 +470,16 @@ TinyScript_Define(const char *name, int typ, Val val)
 {
     Sym *s;
     s = DefineSym(Cstring(name), typ, val);
-    if (!s) return TS_ERR_NOMEM;
+    if (!s) return OutOfMem();
     return TS_ERR_OK;
 }
 
 extern int ParseExpr(Val *result);
 
-// parse an expression list, and push the various
-// results
+// parse an expression list, and push the various results
+// returns the number of items pushed, or a negative error
 static int
-ParseExprList(int *countptr)
+ParseExprList(void)
 {
     int err;
     int count = 0;
@@ -469,8 +498,7 @@ ParseExprList(int *countptr)
             NextToken();
         }
     } while (c==',');
-    *countptr = count;
-    return TS_ERR_OK;
+    return count;
 }
 
 // parse a primary value; for now, just a number
@@ -482,6 +510,7 @@ ParsePrimary(Val *vp)
 {
     int c;
     int err;
+    
     c = curToken;
     if (c == '(') {
         NextToken();
@@ -506,29 +535,28 @@ ParsePrimary(Val *vp)
         Cfunc op = (Cfunc)tokenVal;
         int paramCount = 0;
         Val arg[MAX_BUILTIN_PARAMS];
+        int expectargs;
+        
+        expectargs = tokenArgs;
         c = NextToken();
-        if (c != '(') return TS_ERR_SYNTAX;
+        if (c != '(') return SyntaxError();
         c = NextToken();
         if (c != ')') {
-            err = ParseExprList(&paramCount);
+            paramCount = ParseExprList();
             c = curToken;
+            if (paramCount < 0) return paramCount;
         }
         if (c!=')') {
-            return TS_ERR_SYNTAX;
+            return SyntaxError();
         }
         NextToken();
-        // make sure at least 4 params on on the stack
-        while (paramCount < MAX_BUILTIN_PARAMS) {
-            Push(0);
-            paramCount++;
+        // make sure the right number of params is on the stack
+        if (expectargs != paramCount) {
+            return ArgMismatch();
         }
         // we now have "paramCount" items pushed on to the stack
         // pop em off
         // we silently ignore parameters past the max
-        while (paramCount > MAX_BUILTIN_PARAMS) {
-            Pop();
-            --paramCount;
-        }
         while (paramCount > 0) {
             --paramCount;
             arg[paramCount] = Pop();
@@ -688,15 +716,15 @@ ParseFuncDef(int saveStrings)
     String name;
     String body;
     int c;
-    int err;
+    int nargs = 0;
     
     c = NextRawToken(); // do not interpret the symbol
     if (c != TOK_SYMBOL) return TS_ERR_SYNTAX;
     name = token;
     c = NextToken();
     if (c == '(') {
-        err = ParseVarList();
-        if (err != TS_ERR_OK) return err;
+        nargs = ParseVarList();
+        if (nargs < 0) return nargs;
         c = NextToken();
     }
     if (c != TOK_STRING) return TS_ERR_SYNTAX;
@@ -709,7 +737,7 @@ ParseFuncDef(int saveStrings)
         name = DupString(name);
         body = DupString(body);
     }
-    sym = DefineSym(name, PROC, (intptr_t)StringGetPtr(body));
+    sym = DefineSym(name, PROC | (nargs<<8), (intptr_t)StringGetPtr(body));
     if (!sym) return TS_ERR_NOMEM;
     sym->aux = StringGetLen(body);
     NextToken();
@@ -778,7 +806,7 @@ ParseStmt(int saveStrings)
     if (c == TOK_VARDEF) {
         // a definition var a=x
         c=NextRawToken(); // we want to get VAR_SYMBOL directly
-        if (c != TOK_SYMBOL) return TS_ERR_SYNTAX;
+        if (c != TOK_SYMBOL) return SyntaxError();
         if (saveStrings) {
             name = DupString(token);
         } else {
@@ -800,10 +828,11 @@ ParseStmt(int saveStrings)
         // we expect the "=" operator
         // verify that it is "="
         if (StringGetPtr(token)[0] != '=' || StringGetLen(token) != 1) {
-            return TS_ERR_SYNTAX;
+            return SyntaxError();
         }
         if (!s) {
-            return TS_ERR_UNKNOWN_SYM; // unknown symbol
+            PrintString(name);
+            return UnknownSymbol(); // unknown symbol
         }
         NextToken();
         err = ParseExpr(&val);
