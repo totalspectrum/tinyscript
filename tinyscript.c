@@ -445,20 +445,24 @@ TinyScript_Define(const char *name, int typ, Val val)
     return TS_ERR_OK;
 }
 
-extern int ParseExpr();
+extern int ParseExpr(Val *result);
 
+// parse an expression list, and push the various
+// results
 static int
 ParseExprList(int *countptr)
 {
     int err;
     int count = 0;
     int c;
+    Val v;
     
     do {
-        err = ParseExpr();
+        err = ParseExpr(&v);
         if (err != TS_ERR_OK) {
             return err;
         }
+        Push(v);
         count++;
         c = curToken;
         if (c == ',') {
@@ -469,18 +473,19 @@ ParseExprList(int *countptr)
     return TS_ERR_OK;
 }
 
-// parse a value; for now, just a number
+// parse a primary value; for now, just a number
+// or variable
 // returns 0 if valid, non-zero if syntax error
-
+// puts result into *vp
 static int
-ParseExpr0()
+ParsePrimary(Val *vp)
 {
     int c;
     int err;
     c = curToken;
     if (c == '(') {
         NextToken();
-        err = ParseExpr();
+        err = ParseExpr(vp);
         if (err == TS_ERR_OK) {
             c = curToken;
             if (c == ')') {
@@ -490,11 +495,11 @@ ParseExpr0()
         }
         return err;
     } else if (c == TOK_NUMBER) {
-        Push(StringToNum(token));
+        *vp = StringToNum(token);
         NextToken();
         return TS_ERR_OK;
     } else if (c == TOK_VAR) {
-        Push(tokenVal);
+        *vp = tokenVal;
         NextToken();
         return TS_ERR_OK;
     } else if (c == TOK_BUILTIN) {
@@ -528,16 +533,17 @@ ParseExpr0()
             --paramCount;
             arg[paramCount] = Pop();
         }
-        Push(op(arg[0], arg[1], arg[2], arg[3]));
+        *vp = op(arg[0], arg[1], arg[2], arg[3]);
         return TS_ERR_OK;
     } else if ( (c & 0xff) == TOK_BINOP ) {
         // binary operator
         Opfunc op = (Opfunc)tokenVal;
+        Val v;
+        
         NextToken();
-        err = ParseExpr();
+        err = ParseExpr(&v);
         if (err == TS_ERR_OK) {
-            Val v = Pop();
-            Push(op(0, v));
+            *vp = op(0, v);
         }
         return err;
     } else {
@@ -546,45 +552,49 @@ ParseExpr0()
 }
 
 // parse a level n expression
-// level 0 is the lowest level
+// level 0 is the lowest level (highest precedence)
+// result goes in *vp
 static int
-ParseExprLevel(int n)
+ParseExprLevel(int max_level, Val *vp)
 {
     int err = TS_ERR_OK;
     int c;
-
-    if (n == 0) {
-        return ParseExpr0();
-    }
-    err = ParseExprLevel(n-1);
-    if (err != TS_ERR_OK) return err;
+    Val lhs;
+    Val rhs;
+    
+    lhs = *vp;
     c = curToken;
     while ( (c & 0xff) == TOK_BINOP ) {
         int level = (c>>8) & 0xff;
+        if (level > max_level) break;
         Opfunc op = (Opfunc)tokenVal;
-        if (level == n) {
-            Val a, b;
-            NextToken();
-            err = ParseExprLevel(n-1);
-            if (err != TS_ERR_OK) {
-                Pop();
-                return err;
-            }
-            b = Pop();
-            a = Pop();
-            Push(op(a, b));
+        NextToken();
+        err = ParsePrimary(&rhs);
+        if (err != TS_ERR_OK) return err;
+        c = curToken;
+        while ( (c&0xff) == TOK_BINOP ) {
+            int nextlevel = (c>>8) & 0xff;
+            if (level <= nextlevel) break;
+            err = ParseExprLevel(nextlevel, &rhs);
+            if (err != TS_ERR_OK) return err;
             c = curToken;
-        } else {
-            break;
         }
+        lhs = op(lhs, rhs);
     }
-    return TS_ERR_OK;
+    *vp = lhs;
+    return err;
 }
 
 int
-ParseExpr()
+ParseExpr(Val *vp)
 {
-    return ParseExprLevel(MAX_EXPR_LEVEL);
+    int err;
+
+    err = ParsePrimary(vp);
+    if (err == TS_ERR_OK) {
+        err = ParseExprLevel(MAX_EXPR_LEVEL, vp);
+    }
+    return err;
 }
 
 static char *
@@ -632,11 +642,10 @@ static int ParseIf()
     int err;
     
     c = NextToken();
-    err = ParseExpr();
+    err = ParseExpr(&cond);
     if (err != TS_ERR_OK) {
         return err;
     }
-    cond = Pop();
     c = curToken;
     if (c != TOK_STRING) {
         return TS_ERR_SYNTAX;
@@ -704,11 +713,10 @@ print_more:
         NextToken();
     } else {
         Val val;
-        err = ParseExpr();
+        err = ParseExpr(&val);
         if (err != TS_ERR_OK) {
             return err;
         }
-        val = Pop();
         PrintNumber(val);
     }
     if (curToken == ',') {
@@ -781,17 +789,13 @@ ParseStmt(int saveStrings)
             return TS_ERR_UNKNOWN_SYM; // unknown symbol
         }
         NextToken();
-        err = ParseExpr();
+        err = ParseExpr(&val);
         if (err != TS_ERR_OK) {
             return err;
         }
-        val = Pop();
         s->value = val;
     } else if (c == TOK_BUILTIN) {
-        err = ParseExpr0();
-        if (err == TS_ERR_OK) {
-            (void)Pop(); // fix up the stack
-        }
+        err = ParsePrimary(&val);
         return err;
     } else if (c == PROC) {
         Sym *sym = tokenSym;
