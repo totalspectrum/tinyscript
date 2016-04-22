@@ -501,6 +501,43 @@ ParseExprList(void)
     return count;
 }
 
+// parse a function call
+static int
+ParseFuncCall(Cfunc op, Val *vp)
+{
+    int paramCount = 0;
+    Val arg[MAX_BUILTIN_PARAMS];
+    int expectargs;
+    int c;
+    
+    expectargs = tokenArgs;
+    c = NextToken();
+    if (c != '(') return SyntaxError();
+    c = NextToken();
+    if (c != ')') {
+        paramCount = ParseExprList();
+        c = curToken;
+        if (paramCount < 0) return paramCount;
+    }
+    if (c!=')') {
+        return SyntaxError();
+    }
+    NextToken();
+    // make sure the right number of params is on the stack
+    if (expectargs != paramCount) {
+        return ArgMismatch();
+    }
+    // we now have "paramCount" items pushed on to the stack
+    // pop em off
+    // we silently ignore parameters past the max
+    while (paramCount > 0) {
+        --paramCount;
+        arg[paramCount] = Pop();
+    }
+    *vp = op(arg[0], arg[1], arg[2], arg[3]);
+    return TS_ERR_OK;
+}
+
 // parse a primary value; for now, just a number
 // or variable
 // returns 0 if valid, non-zero if syntax error
@@ -533,36 +570,7 @@ ParsePrimary(Val *vp)
         return TS_ERR_OK;
     } else if (c == TOK_BUILTIN) {
         Cfunc op = (Cfunc)tokenVal;
-        int paramCount = 0;
-        Val arg[MAX_BUILTIN_PARAMS];
-        int expectargs;
-        
-        expectargs = tokenArgs;
-        c = NextToken();
-        if (c != '(') return SyntaxError();
-        c = NextToken();
-        if (c != ')') {
-            paramCount = ParseExprList();
-            c = curToken;
-            if (paramCount < 0) return paramCount;
-        }
-        if (c!=')') {
-            return SyntaxError();
-        }
-        NextToken();
-        // make sure the right number of params is on the stack
-        if (expectargs != paramCount) {
-            return ArgMismatch();
-        }
-        // we now have "paramCount" items pushed on to the stack
-        // pop em off
-        // we silently ignore parameters past the max
-        while (paramCount > 0) {
-            --paramCount;
-            arg[paramCount] = Pop();
-        }
-        *vp = op(arg[0], arg[1], arg[2], arg[3]);
-        return TS_ERR_OK;
+        return ParseFuncCall(op, vp);
     } else if ( (c & 0xff) == TOK_BINOP ) {
         // binary operator
         Opfunc op = (Opfunc)tokenVal;
