@@ -68,8 +68,10 @@ main(int argc, char **argv)
         return 1;
     }
     err = TinyScript_Run(fibo_ts, 0, 0);
-    if (err) {
-        printf("error\n");
+    if (err < 0) {
+        printf("error ");
+        putchar('0' - err);
+        putchar('\n');
     } else {
         printf("ok\n");
     }

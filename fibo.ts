@@ -7,7 +7,7 @@
 # returns result in r
 var n=0
 var r=0
-proc fibo() {
+func fibo() {
 if (n<2){
 r=n
 }else{
@@ -20,7 +20,7 @@ n=s
 }
 
 # convert cycles to milliseconds
-proc calcms() {
+func calcms() {
   ms=(cycles+40000)/80000
 }
 

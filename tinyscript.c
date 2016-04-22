@@ -597,7 +597,7 @@ ParsePrimary(Val *vp)
         }
         return err;
     } else {
-        return TS_ERR_SYNTAX;
+        return SyntaxError();
     }
 }
 
@@ -698,14 +698,14 @@ static int ParseIf()
     }
     c = curToken;
     if (c != TOK_STRING) {
-        return TS_ERR_SYNTAX;
+        return SyntaxError();
     }
     ifpart = token;
     c = NextToken();
     if (c == TOK_ELSE) {
         c = NextToken();
         if (c != TOK_STRING) {
-            return TS_ERR_SYNTAX;
+            return SyntaxError();
         }
         elsepart = token;
         haveelse = 1;
@@ -726,7 +726,7 @@ ParseVarList()
     int c;
     c = NextToken();
     if (c != ')') {
-        return TS_ERR_SYNTAX;
+        return SyntaxError();
     }
     return TS_ERR_OK;
 }
@@ -741,7 +741,7 @@ ParseFuncDef(int saveStrings)
     int nargs = 0;
     
     c = NextRawToken(); // do not interpret the symbol
-    if (c != TOK_SYMBOL) return TS_ERR_SYNTAX;
+    if (c != TOK_SYMBOL) return SyntaxError();
     name = token;
     c = NextToken();
     if (c == '(') {
@@ -749,7 +749,7 @@ ParseFuncDef(int saveStrings)
         if (nargs < 0) return nargs;
         c = NextToken();
     }
-    if (c != TOK_STRING) return TS_ERR_SYNTAX;
+    if (c != TOK_STRING) return SyntaxError();
     body = token;
     // here is where things get tricky: we have to
     // save a pointer to the string into the Sym
@@ -760,7 +760,7 @@ ParseFuncDef(int saveStrings)
         body = DupString(body);
     }
     sym = DefineSym(name, USRFUNC | (nargs<<8), (intptr_t)StringGetPtr(body));
-    if (!sym) return TS_ERR_NOMEM;
+    if (!sym) return OutOfMem();
     sym->aux = StringGetLen(body);
     NextToken();
     return TS_ERR_OK;
@@ -868,13 +868,13 @@ ParseStmt(int saveStrings)
     } else if (c == USRFUNC) {
         Sym *sym = tokenSym;
         Val v;
-        if (!sym) return TS_ERR_SYNTAX;
+        if (!sym) return SyntaxError();
         return ParseFuncCall(NULL, &v, (const char *)sym->value, sym->aux);
     } else if (tokenSym && tokenVal) {
         int (*func)(int) = (void *)tokenVal;
         err = (*func)(saveStrings);
     } else {
-        return TS_ERR_SYNTAX;
+        return SyntaxError();
     }
     if (err == TS_ERR_OK_ELSE) {
         err = TS_ERR_OK;
@@ -903,7 +903,7 @@ ParseString(String str, int saveStrings, int topLevel)
         if (c == '\n' || c == ';' || c < 0) {
             /* ok */
         } else {
-            return TS_ERR_SYNTAX;
+            return SyntaxError();
         }
     }
     parseptr = savepc;

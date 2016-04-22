@@ -23,8 +23,8 @@ looks like:
     <program> ::= <stmt> | <stmt><sep><program>
     <stmt> ::= <vardecl> | <funcdecl> |
                | <assignment> | <ifstmt>
-               | <whilestmt> | <proccall>
-               | <printstmt> | <builtincall>
+               | <whilestmt> | <funccall>
+               | <printstmt>
 
 The statements in a program are separated by newlines or ';'.
 
@@ -60,7 +60,6 @@ treated as true, and zero is treated as false. As a quirk of the
 implementation, it is permitted to add an "else" clause to a while statement;
 any such clause will always be executed after the loop exits.
 
-    <subrcall> ::= <symbol>
     <printstmt> ::= "print" <printitem> [ "," <printitem>]+
     <printitem> ::= <string> | <expr>
 
@@ -73,7 +72,7 @@ by a unary operator:
                 | <unaryop><expr0> 
                 | "(" <expr> ")"
                 | <builtincall>
-    <builtincall> ::= <symbol> "(" [<exprlist>] ")"
+    <funccall> ::= <symbol> "(" [<exprlist>] ")"
     <exprlist> ::= <expr> ["," <expr>]*
 
 
@@ -114,7 +113,7 @@ func printx() {
 }
 func myfunc() {
   var x=3
-  printx
+  printx()
 }
 ```
 invoking `myfunc` will cause 3 to be printed, not 2 as in statically scoped
