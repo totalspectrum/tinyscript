@@ -48,9 +48,12 @@ static Byte *arena;
 
 static Sym *symptr;
 static Val *valptr;
-static String parseptr;  // instruction pointer
+static String parseptr;  // acts as instruction pointer
 
-// fetch the next token
+// arguments to functions
+static Val fArgs[MAX_BUILTIN_PARAMS];
+
+// variables for parsing
 static int curToken;  // what kind of token is current
 static int tokenArgs; // number of arguments for this token
 static String token;  // the actual string representing the token
@@ -510,10 +513,9 @@ static int ParseString(String str, int saveStrings, int topLevel);
 // or a user defined script
 
 static int
-ParseFuncCall(Cfunc op, Val *vp, const char *script, int scriptlen )
+ParseFuncCall(Cfunc op, Val *vp, UserFunc *uf)
 {
     int paramCount = 0;
-    Val arg[MAX_BUILTIN_PARAMS];
     int expectargs;
     int c;
     
@@ -538,16 +540,14 @@ ParseFuncCall(Cfunc op, Val *vp, const char *script, int scriptlen )
     // pop em off
     while (paramCount > 0) {
         --paramCount;
-        arg[paramCount] = Pop();
+        fArgs[paramCount] = Pop();
     }
-    if (script) {
+    if (uf) {
         // need to invoke the script here
-        String body;
-        StringSetPtr(&body, script);
-        StringSetLen(&body, scriptlen);
-        return ParseString(body, 0, 0);
+        // set up an environment for the script
+        return ParseString(uf->body, 0, 0);
     } else {
-        *vp = op(arg[0], arg[1], arg[2], arg[3]);
+        *vp = op(fArgs[0], fArgs[1], fArgs[2], fArgs[3]);
     }
     return TS_ERR_OK;
 }
@@ -584,7 +584,7 @@ ParsePrimary(Val *vp)
         return TS_ERR_OK;
     } else if (c == TOK_BUILTIN) {
         Cfunc op = (Cfunc)tokenVal;
-        return ParseFuncCall(op, vp, NULL, 0);
+        return ParseFuncCall(op, vp, NULL);
     } else if ( (c & 0xff) == TOK_BINOP ) {
         // binary operator
         Opfunc op = (Opfunc)tokenVal;
@@ -721,7 +721,7 @@ static int ParseIf()
 }
 
 static int
-ParseVarList()
+ParseVarList(UserFunc *uf)
 {
     int c;
     c = NextToken();
@@ -739,29 +739,30 @@ ParseFuncDef(int saveStrings)
     String body;
     int c;
     int nargs = 0;
+    UserFunc *uf;
     
     c = NextRawToken(); // do not interpret the symbol
     if (c != TOK_SYMBOL) return SyntaxError();
     name = token;
     c = NextToken();
+    uf = (UserFunc *)stack_alloc(sizeof(*uf));
+    if (!uf) return OutOfMem();
     if (c == '(') {
-        nargs = ParseVarList();
+        nargs = ParseVarList(uf);
         if (nargs < 0) return nargs;
         c = NextToken();
     }
     if (c != TOK_STRING) return SyntaxError();
     body = token;
-    // here is where things get tricky: we have to
-    // save a pointer to the string into the Sym
-    // on small machines pack them together
-    // on large ones, use an "aux" field
+
     if (saveStrings) {
+        // copy the strings into safe memory
         name = DupString(name);
         body = DupString(body);
     }
-    sym = DefineSym(name, USRFUNC | (nargs<<8), (intptr_t)StringGetPtr(body));
+    uf->body = body;
+    sym = DefineSym(name, USRFUNC | (nargs<<8), (intptr_t)uf);
     if (!sym) return OutOfMem();
-    sym->aux = StringGetLen(body);
     NextToken();
     return TS_ERR_OK;
 }
@@ -869,7 +870,7 @@ ParseStmt(int saveStrings)
         Sym *sym = tokenSym;
         Val v;
         if (!sym) return SyntaxError();
-        return ParseFuncCall(NULL, &v, (const char *)sym->value, sym->aux);
+        return ParseFuncCall(NULL, &v, (UserFunc *)sym->value);
     } else if (tokenSym && tokenVal) {
         int (*func)(int) = (void *)tokenVal;
         err = (*func)(saveStrings);

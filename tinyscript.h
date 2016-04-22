@@ -60,6 +60,7 @@ static inline void StringSetPtr(String *s, const char *ptr) { s->ptr_ = ptr; }
 #define INT      0x0  // integer
 #define STRING   0x1  // string
 #define OPERATOR 0x2  // operator; precedence in high 8 bits
+#define ARG      0x3  // argument; value is offset on stack
 #define BUILTIN  'B'  // builtin: number of operands in high 8 bits
 #define USRFUNC  'f'  // user defined a procedure; number of operands in high 8 bits
 
@@ -70,7 +71,6 @@ typedef struct symbol {
     String name;
     int    type;   // symbol type
     Val    value;  // symbol value, or string ptr
-    Val    aux;    // string len for string values
 } Sym;
 
 #define MAX_BUILTIN_PARAMS 4
@@ -81,7 +81,9 @@ typedef Val (*Opfunc)(Val, Val);
 // structure to descript a user function
 typedef struct ufunc {
     String body; // pointer to the body of the function
-    
+    int nargs;   // number of args
+    // names of arguments
+    String names[MAX_BUILTIN_PARAMS];
 } UserFunc;
 
 //
