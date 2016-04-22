@@ -19,10 +19,9 @@ func printglobal {
 }
 func myfunc() {
     var global=123
-    printglobal
+    printglobal()
 }
 
-printglobal
-myfunc
-printglobal
-
+printglobal()
+myfunc()
+printglobal()

@@ -48,7 +48,7 @@ static Byte *arena;
 
 static Sym *symptr;
 static Val *valptr;
-static String pc;  // instruction pointer
+static String parseptr;  // instruction pointer
 
 // fetch the next token
 static int curToken;  // what kind of token is current
@@ -160,7 +160,9 @@ outcstr(const char *ptr)
 // some functions to print an error and return
 //
 static int SyntaxError() {
-    outcstr("syntax error\n");
+    outcstr("syntax error before:");
+    PrintString(parseptr);
+    outchar('\n');
     return TS_ERR_SYNTAX;
 }
 static int ArgMismatch() {
@@ -196,7 +198,7 @@ static int UnknownSymbol() {
 static void ResetToken()
 {
     StringSetLen(&token, 0);
-    StringSetPtr(&token, StringGetPtr(pc));
+    StringSetPtr(&token, StringGetPtr(parseptr));
 }
 
 //
@@ -206,16 +208,16 @@ static int
 GetChar()
 {
     int c;
-    unsigned len = StringGetLen(pc);
+    unsigned len = StringGetLen(parseptr);
     const char *ptr;
     if (len == 0)
         return -1;
-    ptr = StringGetPtr(pc);
+    ptr = StringGetPtr(parseptr);
     c = *ptr++;
     --len;
 
-    StringSetPtr(&pc, ptr);
-    StringSetLen(&pc, len);
+    StringSetPtr(&parseptr, ptr);
+    StringSetLen(&parseptr, len);
     StringSetLen(&token, StringGetLen(token)+1);
     return c;
 }
@@ -232,8 +234,8 @@ IgnoreLastChar()
 static void
 UngetChar()
 {
-    StringSetLen(&pc, StringGetLen(pc)+1);
-    StringSetPtr(&pc, StringGetPtr(pc)-1);
+    StringSetLen(&parseptr, StringGetLen(parseptr)+1);
+    StringSetPtr(&parseptr, StringGetPtr(parseptr)-1);
     IgnoreLastChar();
 }
 
@@ -501,9 +503,14 @@ ParseExprList(void)
     return count;
 }
 
+static int ParseString(String str, int saveStrings, int topLevel);
+
 // parse a function call
+// this may be a builtin (if script == NULL)
+// or a user defined script
+
 static int
-ParseFuncCall(Cfunc op, Val *vp)
+ParseFuncCall(Cfunc op, Val *vp, const char *script, int scriptlen )
 {
     int paramCount = 0;
     Val arg[MAX_BUILTIN_PARAMS];
@@ -529,12 +536,19 @@ ParseFuncCall(Cfunc op, Val *vp)
     }
     // we now have "paramCount" items pushed on to the stack
     // pop em off
-    // we silently ignore parameters past the max
     while (paramCount > 0) {
         --paramCount;
         arg[paramCount] = Pop();
     }
-    *vp = op(arg[0], arg[1], arg[2], arg[3]);
+    if (script) {
+        // need to invoke the script here
+        String body;
+        StringSetPtr(&body, script);
+        StringSetLen(&body, scriptlen);
+        return ParseString(body, 0, 0);
+    } else {
+        *vp = op(arg[0], arg[1], arg[2], arg[3]);
+    }
     return TS_ERR_OK;
 }
 
@@ -570,7 +584,7 @@ ParsePrimary(Val *vp)
         return TS_ERR_OK;
     } else if (c == TOK_BUILTIN) {
         Cfunc op = (Cfunc)tokenVal;
-        return ParseFuncCall(op, vp);
+        return ParseFuncCall(op, vp, NULL, 0);
     } else if ( (c & 0xff) == TOK_BINOP ) {
         // binary operator
         Opfunc op = (Opfunc)tokenVal;
@@ -745,7 +759,7 @@ ParseFuncDef(int saveStrings)
         name = DupString(name);
         body = DupString(body);
     }
-    sym = DefineSym(name, PROC | (nargs<<8), (intptr_t)StringGetPtr(body));
+    sym = DefineSym(name, USRFUNC | (nargs<<8), (intptr_t)StringGetPtr(body));
     if (!sym) return TS_ERR_NOMEM;
     sym->aux = StringGetLen(body);
     NextToken();
@@ -783,14 +797,14 @@ static int
 ParseWhile()
 {
     int err;
-    String savepc = pc;
+    String savepc = parseptr;
 
 again:
     err = ParseIf();
     if (err == TS_ERR_OK_ELSE) {
         return TS_ERR_OK;
     } else if (err == TS_ERR_OK) {
-        pc = savepc;
+        parseptr = savepc;
         goto again;
     }
     return err;
@@ -851,13 +865,11 @@ ParseStmt(int saveStrings)
     } else if (c == TOK_BUILTIN) {
         err = ParsePrimary(&val);
         return err;
-    } else if (c == PROC) {
+    } else if (c == USRFUNC) {
         Sym *sym = tokenSym;
-        String body;
+        Val v;
         if (!sym) return TS_ERR_SYNTAX;
-        StringSetPtr(&body, (const char *)sym->value);
-        StringSetLen(&body, sym->aux);
-        return ParseString(body, 0, 0);
+        return ParseFuncCall(NULL, &v, (const char *)sym->value, sym->aux);
     } else if (tokenSym && tokenVal) {
         int (*func)(int) = (void *)tokenVal;
         err = (*func)(saveStrings);
@@ -873,12 +885,12 @@ ParseStmt(int saveStrings)
 static int
 ParseString(String str, int saveStrings, int topLevel)
 {
-    String savepc = pc;
+    String savepc = parseptr;
     Sym* savesymptr = symptr;
     int c;
     int r;
     
-    pc = str;
+    parseptr = str;
     for(;;) {
         c = NextToken();
         while (c == '\n' || c == ';') {
@@ -894,7 +906,7 @@ ParseString(String str, int saveStrings, int topLevel)
             return TS_ERR_SYNTAX;
         }
     }
-    pc = savepc;
+    parseptr = savepc;
     if (!topLevel) {
         // restore variable context
         symptr = savesymptr;

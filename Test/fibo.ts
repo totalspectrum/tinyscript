@@ -13,15 +13,15 @@ func fibo() {
   } else {
     var saven=n  # save our parameter for recursive call
     var a=0
-    n=n-1; fibo; a=r
-    n=saven-2; fibo; r=a+r
+    n=n-1; fibo(); a=r
+    n=saven-2; fibo(); r=a+r
     n=saven
   }
 }
 
 var i=1
 while i<=12 {
-  n=i; fibo
+  n=i; fibo()
   print "fibo(",i,") = ",r
   i=i+1
 }

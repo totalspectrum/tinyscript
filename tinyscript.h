@@ -61,7 +61,7 @@ static inline void StringSetPtr(String *s, const char *ptr) { s->ptr_ = ptr; }
 #define STRING   0x1  // string
 #define OPERATOR 0x2  // operator; precedence in high 8 bits
 #define BUILTIN  'B'  // builtin: number of operands in high 8 bits
-#define PROC     'f'  // user defined a procedure; number of operands in high 8 bits
+#define USRFUNC  'f'  // user defined a procedure; number of operands in high 8 bits
 
 #define BINOP(x) (((x)<<8)+OPERATOR)
 #define CFUNC(x) (((x)<<8)+BUILTIN)
@@ -77,6 +77,12 @@ typedef struct symbol {
 
 typedef Val (*Cfunc)(Val, Val, Val, Val);
 typedef Val (*Opfunc)(Val, Val);
+
+// structure to descript a user function
+typedef struct ufunc {
+    String body; // pointer to the body of the function
+    
+} UserFunc;
 
 //
 // global interface
