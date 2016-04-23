@@ -847,6 +847,8 @@ ParseReturn()
     int err;
     NextToken();
     err = ParseExpr(&fResult);
+    // terminate the script
+    StringSetLen(&parseptr, 0);
     return err;
 }
 

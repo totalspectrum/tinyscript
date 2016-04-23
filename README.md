@@ -24,11 +24,11 @@ looks like:
     <stmt> ::= <vardecl> | <funcdecl> |
                | <assignment> | <ifstmt>
                | <whilestmt> | <funccall>
-               | <printstmt>
+               | <printstmt> | <returnstmt>
 
 The statements in a program are separated by newlines or ';'.
 
-Either variables or procedures may be declared.
+Either variables or functions may be declared.
 
     <funcdecl> ::= "func" <symbol> "(" <varlist> ")" <string>
     <vardecl> ::= "var" <assignment>
@@ -40,13 +40,13 @@ simply hold 32 bit quantities, normally interpreted as an integer.
 The symbol in an assignment outside of a vardecl must already have
 been declared.
 
-Procedures point to a string. When a procedure is called, the string
+Functions point to a string. When a procedure is called, the string
 is interpreted as a script (so at that time it is parsed using the
-language grammar). If a procedure is never called then it is never
+language grammar). If a function is never called then it is never
 parsed, so it need not contain legal code if it is not called.
 
 Strings may be enclosed either in double quotes or between { and }.
-The latter case is more useful for procedures and similar code uses,
+The latter case is more useful for functions and similar code uses,
 since the brackets nest. Also note that it is legal for newlines to
 appear in {} strings, but not in strings enclosed by ".
 
@@ -54,11 +54,16 @@ appear in {} strings, but not in strings enclosed by ".
     <elsepart> ::= "else" <string>
     <whilestmt> ::= "while" <expr> <string> [<elsepart>]
 
-As with subroutines, the strings in if and while statements are parsed
+As with functions, the strings in if and while statements are parsed
 and interpreted on an as-needed basis. Any non-zero expression is
 treated as true, and zero is treated as false. As a quirk of the
 implementation, it is permitted to add an "else" clause to a while statement;
 any such clause will always be executed after the loop exits.
+
+    <returnstmt> ::= "return" <expr>
+
+Return statements are used to terminate a function and return a value
+to its caller.
 
     <printstmt> ::= "print" <printitem> [ "," <printitem>]+
     <printitem> ::= <string> | <expr>
