@@ -34,6 +34,10 @@
 #include <stdio.h>
 #endif
 
+// comment this symbol out to save a little bit of space on
+// the error messages
+#define VERBOSE_ERRORS
+
 #define MAX_EXPR_LEVEL 5
 
 #include <string.h>
@@ -160,6 +164,7 @@ outcstr(const char *ptr)
     }
 }
 
+#ifdef VERBOSE_ERRORS
 //
 // some functions to print an error and return
 //
@@ -185,6 +190,14 @@ static int UnknownSymbol() {
     outcstr(": unknown symbol\n");
     return TS_ERR_UNKNOWN_SYM;
 }
+#else
+#define SyntaxError() TS_ERR_SYNTAX
+#define ArgMismatch() TS_ERR_BADARGS
+#define TooManyArgs() TS_ERR_TOOMANYARGS
+#define OutOfMem()    TS_ERR_NOMEM
+#define UnknownSymbol() TS_ERR_UNKNOWN_SYM
+#endif
+
 //
 // parse an expression or statement
 //
@@ -355,8 +368,8 @@ doNextToken(int israw)
     } else if (isoperator(c)) {
         GetSpan(isoperator);
         tokenSym = sym = LookupSym(token);
-        if (sym && (sym->type&0xff) == OPERATOR) {
-            r = TOK_BINOP | (sym->type & 0xff00);
+        if (sym) {
+            r = sym->type;
             tokenVal = sym->value;
         } else {
             r = TOK_SYNTAX_ERR;
@@ -912,7 +925,9 @@ ParseStmt(int saveStrings)
             return SyntaxError();
         }
         if (!s) {
+#ifdef VERBOSE_ERRORS
             PrintString(name);
+#endif
             return UnknownSymbol(); // unknown symbol
         }
         NextToken();

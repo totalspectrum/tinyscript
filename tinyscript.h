@@ -63,8 +63,9 @@ static inline void StringSetPtr(String *s, const char *ptr) { s->ptr_ = ptr; }
 #define ARG      0x3  // argument; value is offset on stack
 #define BUILTIN  'B'  // builtin: number of operands in high 8 bits
 #define USRFUNC  'f'  // user defined a procedure; number of operands in high 8 bits
+#define TOK_BINOP 'o'
 
-#define BINOP(x) (((x)<<8)+OPERATOR)
+#define BINOP(x) (((x)<<8)+TOK_BINOP)
 #define CFUNC(x) (((x)<<8)+BUILTIN)
 
 typedef struct symbol {
