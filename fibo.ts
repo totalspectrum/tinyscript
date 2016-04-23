@@ -3,19 +3,12 @@
 #
 
 # calculate fibo(n)
-# parameter in n
-# returns result in r
-var n=0
-var r=0
-func fibo() {
+
+func fibo(n) {
 if (n<2){
-r=n
+return n
 }else{
-var s=n  # save our parameter for recursive call
-var a=0
-n=n-1;fibo();a=r
-n=s-2;fibo();r=a+r
-n=s
+return fibo(n-1)+fibo(n-2)
 }
 }
 
@@ -27,9 +20,10 @@ func calcms() {
 var i=1
 var cycles=0
 var ms=0
+var r=0
 while i<=8 {
   cycles=getcnt()
-  n=i; fibo()
+  r=fibo(i)
   cycles=getcnt()-cycles
   calcms()
   print "fibo(",i,") = ",r, " ", ms, " ms (", cycles, " cycles)"

@@ -52,6 +52,7 @@ static String parseptr;  // acts as instruction pointer
 
 // arguments to functions
 static Val fArgs[MAX_BUILTIN_PARAMS];
+static Val fResult = 0;
 
 // variables for parsing
 static int curToken;  // what kind of token is current
@@ -172,6 +173,10 @@ static int ArgMismatch() {
     outcstr("argument mismatch\n");
     return TS_ERR_BADARGS;
 }
+static int TooManyArgs() {
+    outcstr("too many arguments\n");
+    return TS_ERR_TOOMANYARGS;
+}
 static int OutOfMem() {
     outcstr("out of memory\n");
     return TS_ERR_NOMEM;
@@ -197,6 +202,7 @@ static int UnknownSymbol() {
 #define TOK_BINOP  'o'
 #define TOK_FUNCDEF 'F'
 #define TOK_SYNTAX_ERR 'Z'
+#define TOK_RETURN 'r'
 
 static void ResetToken()
 {
@@ -518,8 +524,12 @@ ParseFuncCall(Cfunc op, Val *vp, UserFunc *uf)
     int paramCount = 0;
     int expectargs;
     int c;
-    
-    expectargs = tokenArgs;
+
+    if (uf) {
+        expectargs = uf->nargs;
+    } else {
+        expectargs = tokenArgs;
+    }
     c = NextToken();
     if (c != '(') return SyntaxError();
     c = NextToken();
@@ -531,7 +541,6 @@ ParseFuncCall(Cfunc op, Val *vp, UserFunc *uf)
     if (c!=')') {
         return SyntaxError();
     }
-    NextToken();
     // make sure the right number of params is on the stack
     if (expectargs != paramCount) {
         return ArgMismatch();
@@ -545,10 +554,20 @@ ParseFuncCall(Cfunc op, Val *vp, UserFunc *uf)
     if (uf) {
         // need to invoke the script here
         // set up an environment for the script
-        return ParseString(uf->body, 0, 0);
+        int i;
+        int err;
+        Sym* savesymptr = symptr;
+        for (i = 0; i < expectargs; i++) {
+            DefineSym(uf->argName[i], INT, fArgs[i]);
+        }
+        err = ParseString(uf->body, 0, 0);
+        *vp = fResult;
+        symptr = savesymptr;
+        return err;
     } else {
         *vp = op(fArgs[0], fArgs[1], fArgs[2], fArgs[3]);
     }
+    NextToken();
     return TS_ERR_OK;
 }
 
@@ -585,6 +604,12 @@ ParsePrimary(Val *vp)
     } else if (c == TOK_BUILTIN) {
         Cfunc op = (Cfunc)tokenVal;
         return ParseFuncCall(op, vp, NULL);
+    } else if (c == USRFUNC) {
+        Sym *sym = tokenSym;
+        if (!sym) return SyntaxError();
+        err = ParseFuncCall(NULL, vp, (UserFunc *)sym->value);
+        NextToken();
+        return err;
     } else if ( (c & 0xff) == TOK_BINOP ) {
         // binary operator
         Opfunc op = (Opfunc)tokenVal;
@@ -721,14 +746,35 @@ static int ParseIf()
 }
 
 static int
-ParseVarList(UserFunc *uf)
+ParseVarList(UserFunc *uf, int saveStrings)
 {
     int c;
+    int nargs = 0;
     c = NextToken();
-    if (c != ')') {
-        return SyntaxError();
+    for(;;) {
+        if (c == TOK_VAR || c == TOK_SYMBOL) {
+            String name = token;
+            if (saveStrings) {
+                name = DupString(name);
+            }
+            if (nargs >= MAX_BUILTIN_PARAMS) {
+                return TooManyArgs();
+            }
+            uf->argName[nargs] = name;
+            nargs++;
+            c = NextToken();
+            if (c == ')') break;
+            if (c == ',') {
+                c = NextToken();
+            }
+        } else if (c == ')') {
+            break;
+        } else {
+            return SyntaxError();
+        }
     }
-    return TS_ERR_OK;
+    uf->nargs = nargs;
+    return nargs;
 }
 
 static int
@@ -747,8 +793,9 @@ ParseFuncDef(int saveStrings)
     c = NextToken();
     uf = (UserFunc *)stack_alloc(sizeof(*uf));
     if (!uf) return OutOfMem();
+    uf->nargs = 0;
     if (c == '(') {
-        nargs = ParseVarList(uf);
+        nargs = ParseVarList(uf, saveStrings);
         if (nargs < 0) return nargs;
         c = NextToken();
     }
@@ -791,6 +838,15 @@ print_more:
         goto print_more;
     }
     Newline();
+    return err;
+}
+
+static int
+ParseReturn()
+{
+    int err;
+    NextToken();
+    err = ParseExpr(&fResult);
     return err;
 }
 
@@ -863,14 +919,9 @@ ParseStmt(int saveStrings)
             return err;
         }
         s->value = val;
-    } else if (c == TOK_BUILTIN) {
+    } else if (c == TOK_BUILTIN || c == USRFUNC) {
         err = ParsePrimary(&val);
         return err;
-    } else if (c == USRFUNC) {
-        Sym *sym = tokenSym;
-        Val v;
-        if (!sym) return SyntaxError();
-        return ParseFuncCall(NULL, &v, (UserFunc *)sym->value);
     } else if (tokenSym && tokenVal) {
         int (*func)(int) = (void *)tokenVal;
         err = (*func)(saveStrings);
@@ -946,6 +997,7 @@ static struct def {
     { "print", TOK_PRINT, (intptr_t)ParsePrint },
     { "var",   TOK_VARDEF, 0 },
     { "func",  TOK_FUNCDEF, (intptr_t)ParseFuncDef },
+    { "return", TOK_RETURN, (intptr_t)ParseReturn },
     // operators
     { "*",     BINOP(1), (intptr_t)prod },
     { "/",     BINOP(1), (intptr_t)quot },

@@ -5,23 +5,18 @@
 # calculate fibo(n)
 # parameter in n
 # returns result in r
-var n=0
 var r=0
-func fibo() {
+func fibo(n) {
   if (n<2) {
-    r=n
+    return n
   } else {
-    var saven=n  # save our parameter for recursive call
-    var a=0
-    n=n-1; fibo(); a=r
-    n=saven-2; fibo(); r=a+r
-    n=saven
+    return fibo(n-1) + fibo(n-2)
   }
 }
 
 var i=1
 while i<=12 {
-  n=i; fibo()
+  r=fibo(i)
   print "fibo(",i,") = ",r
   i=i+1
 }

@@ -18,7 +18,7 @@ enum {
     TS_ERR_SYNTAX = -2,
     TS_ERR_UNKNOWN_SYM = -3,
     TS_ERR_BADARGS = -4,
-    
+    TS_ERR_TOOMANYARGS = -5,
     TS_ERR_OK_ELSE = 1, // special internal condition
 };
 
@@ -83,7 +83,7 @@ typedef struct ufunc {
     String body; // pointer to the body of the function
     int nargs;   // number of args
     // names of arguments
-    String names[MAX_BUILTIN_PARAMS];
+    String argName[MAX_BUILTIN_PARAMS];
 } UserFunc;
 
 //
