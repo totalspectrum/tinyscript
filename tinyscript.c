@@ -275,7 +275,7 @@ static int charin(int c, const char *str)
 // drag in a table of character flags
 static int isspace(int c)
 {
-    return charin(c, " \t");
+    return (c == ' ') || (c == '\t');
 }
 
 static int isdigit(int c)
@@ -763,9 +763,9 @@ ParseVarList(UserFunc *uf, int saveStrings)
 {
     int c;
     int nargs = 0;
-    c = NextToken();
+    c = NextRawToken();
     for(;;) {
-        if (c == TOK_VAR || c == TOK_SYMBOL) {
+        if (c == TOK_SYMBOL) {
             String name = token;
             if (saveStrings) {
                 name = DupString(name);

@@ -79,7 +79,7 @@ typedef struct symbol {
 typedef Val (*Cfunc)(Val, Val, Val, Val);
 typedef Val (*Opfunc)(Val, Val);
 
-// structure to descript a user function
+// structure to describe a user function
 typedef struct ufunc {
     String body; // pointer to the body of the function
     int nargs;   // number of args
