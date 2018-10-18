@@ -204,6 +204,7 @@ static int UnknownSymbol() {
 
 #define TOK_SYMBOL 'A'
 #define TOK_NUMBER 'N'
+#define TOK_HEX_NUMBER 'X'
 #define TOK_STRING 'S'
 #define TOK_IF     'i'
 #define TOK_ELSE   'e'
@@ -244,10 +245,29 @@ GetChar()
     return c;
 }
 
+//
+// peek n characters forward from the program counter
+// returns -1 on end of file
+static int
+PeekChar(unsigned int n)
+{
+  if (StringGetLen(parseptr) <= n)
+    return -1;
+  return *(StringGetPtr(parseptr) + n);
+}
+
 // remove the last character read from the token
 static void
 IgnoreLastChar()
 {
+    StringSetLen(&token, StringGetLen(token)-1);
+}
+
+// remove the last character read from the token
+static void
+IgnoreFirstChar()
+{
+    StringSetPtr(&token, StringGetPtr(token) + 1);
     StringSetLen(&token, StringGetLen(token)-1);
 }
 //
@@ -281,6 +301,10 @@ static int isspace(int c)
 static int isdigit(int c)
 {
     return (c >= '0' && c <= '9');
+}
+static int ishexchar(int c)
+{
+    return (c >= '0' && c <= '9') || charin(c, "abcdefABCDEF");
 }
 static int islower(int c)
 {
@@ -349,8 +373,16 @@ doNextToken(int israw)
         } while (c >= 0 && c != '\n');
         r = c;
     } else if (isdigit(c)) {
-        GetSpan(isdigit);
-        r = TOK_NUMBER;
+        if (c == '0' && charin(PeekChar(0), "xX") && ishexchar(PeekChar(1))) {
+            GetChar();
+            IgnoreFirstChar();
+            IgnoreFirstChar();
+            GetSpan(ishexchar);
+            r = TOK_HEX_NUMBER;
+        } else {
+            GetSpan(isdigit);
+            r = TOK_NUMBER;
+        }
     } else if ( isalpha(c) ) {
         GetSpan(isidentifier);
         r = TOK_SYMBOL;
@@ -449,6 +481,27 @@ StringToNum(String s)
         c = *ptr++;
         if (!isdigit(c)) break;
         r = 10*r + (c-'0');
+    }
+    return r;
+}
+
+// convert a hex string to a number
+Val
+HexStringToNum(String s)
+{
+    Val r = 0;
+    int c;
+    const Byte *ptr = StringGetPtr(s);
+    int len = StringGetLen(s);
+    while (len-- > 0) {
+        c = *ptr++;
+        if (!ishexchar(c)) break;
+        if (c <= '9')
+            r = 16 * r + (c - '0');
+        else if (c <= 'F')
+            r = 16 * r + (c - 'A' + 10);
+        else
+            r = 16 * r + (c - 'a' + 10);
     }
     return r;
 }
@@ -608,6 +661,10 @@ ParsePrimary(Val *vp)
         return err;
     } else if (c == TOK_NUMBER) {
         *vp = StringToNum(token);
+        NextToken();
+        return TS_ERR_OK;
+    } else if (c == TOK_HEX_NUMBER) {
+        *vp = HexStringToNum(token);
         NextToken();
         return TS_ERR_OK;
     } else if (c == TOK_VAR) {

@@ -68,10 +68,10 @@ to its caller.
     <printstmt> ::= "print" <printitem> [ "," <printitem>]+
     <printitem> ::= <string> | <expr>
 
-Expressions are built up from symbols, numbers, and operators. The
-operators have precedence levels 1-4. Level 0 of expressions is the
-most basic, consisting of numbers or variables optionally preceded
-by a unary operator:
+Expressions are built up from symbols, numbers (decimal or hex integeres), and
+operators. The operators have precedence levels 1-4. Level 0 of expressions is
+the most basic, consisting of numbers or variables optionally preceded by a
+unary operator:
 
     <expr0> ::= <symbol> | <number> 
                 | <unaryop><expr0> 
@@ -79,7 +79,8 @@ by a unary operator:
                 | <builtincall>
     <funccall> ::= <symbol> "(" [<exprlist>] ")"
     <exprlist> ::= <expr> ["," <expr>]*
-
+    
+    <number> ::= <digit>+ | "0x"<digit>+
 
     <expr1> ::= <expr0> [<binop1> <expr0>]*
     <binop1> ::= "*" | "/"
