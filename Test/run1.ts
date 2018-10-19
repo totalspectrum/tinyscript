@@ -11,6 +11,11 @@ print x
 print (-x)+15
 print 6+x/2
 print x*2-4
+print 0x10
+print 0x123
+print 0xa
+print 0xFEED
+print 0x12abc
 
 # now test strings
 print "x=", x
