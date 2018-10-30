@@ -79,8 +79,12 @@ unary operator:
                 | <builtincall>
     <funccall> ::= <symbol> "(" [<exprlist>] ")"
     <exprlist> ::= <expr> ["," <expr>]*
-    
-    <number> ::= <digit>+ | "0x"<digit>+
+
+    <number> ::= <digit>+ | "0x"<digit>+ | "'"<asciicharsequence>"'"
+
+    <asciicharsequence> ::= <printableasciichar> | "\'" | "\\" | "\n" | "\t" | "\r"
+
+    <printableasciichar> ::= ' ' to '~' excluding ' and \
 
     <expr1> ::= <expr0> [<binop1> <expr0>]*
     <binop1> ::= "*" | "/"
