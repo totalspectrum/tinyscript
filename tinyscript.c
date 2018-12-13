@@ -615,8 +615,8 @@ ParsePrimary(Val *vp)
         NextToken();
         return TS_ERR_OK;
     } else if (c == TOK_BUILTIN) {
-        Cfunc op = (Cfunc)tokenVal;
-        return ParseFuncCall(op, vp, NULL);
+        Cfunc cop = (Cfunc)tokenVal;
+        return ParseFuncCall(cop, vp, NULL);
     } else if (c == USRFUNC) {
         Sym *sym = tokenSym;
         if (!sym) return SyntaxError();
@@ -653,9 +653,10 @@ ParseExprLevel(int max_level, Val *vp)
     lhs = *vp;
     c = curToken;
     while ( (c & 0xff) == TOK_BINOP ) {
+        Opfunc op;
         int level = (c>>8) & 0xff;
         if (level > max_level) break;
-        Opfunc op = (Opfunc)tokenVal;
+        op = (Opfunc)tokenVal;
         NextToken();
         err = ParsePrimary(&rhs);
         if (err != TS_ERR_OK) return err;

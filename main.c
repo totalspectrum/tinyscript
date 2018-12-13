@@ -85,7 +85,7 @@ struct def {
     const char *name;
     intptr_t val;
     int nargs;
-} defs[] = {
+} funcdefs[] = {
 #ifdef __propeller__
     { "getcnt",    (intptr_t)getcnt_fn, 0 },
     { "waitcnt",   (intptr_t)waitcnt_fn, 1 },
@@ -113,7 +113,7 @@ REPL()
     }
 }
 
-char arena[ARENA_SIZE];
+char memarena[ARENA_SIZE];
 
 int
 main(int argc, char **argv)
@@ -121,9 +121,9 @@ main(int argc, char **argv)
     int err;
     int i;
     
-    err = TinyScript_Init(arena, sizeof(arena));
-    for (i = 0; defs[i].name; i++) {
-        err |= TinyScript_Define(defs[i].name, CFUNC(defs[i].nargs), defs[i].val);
+    err = TinyScript_Init(memarena, sizeof(memarena));
+    for (i = 0; funcdefs[i].name; i++) {
+        err |= TinyScript_Define(funcdefs[i].name, CFUNC(funcdefs[i].nargs), funcdefs[i].val);
     }
     if (err != 0) {
         printf("Initialization of interpreter failed!\n");
