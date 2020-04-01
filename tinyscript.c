@@ -205,6 +205,7 @@ static int UnknownSymbol() {
 #define TOK_SYMBOL 'A'
 #define TOK_NUMBER 'N'
 #define TOK_HEX_NUMBER 'X'
+#define TOK_CHAR   'C'
 #define TOK_STRING 'S'
 #define TOK_IF     'i'
 #define TOK_ELSE   'e'
@@ -383,6 +384,18 @@ doNextToken(int israw)
             GetSpan(isdigit);
             r = TOK_NUMBER;
         }
+    } else if (c == '\'') {
+      c = GetChar(); // get first
+      if (c == '\\') GetChar();
+      c = GetChar(); // get closing '
+      // ignore ' on both sides
+      if (c == '\'') {
+        IgnoreFirstChar();
+        IgnoreLastChar();
+        r = TOK_CHAR;
+      } else {
+        r = TOK_SYNTAX_ERR;
+      }
     } else if ( isalpha(c) ) {
         GetSpan(isidentifier);
         r = TOK_SYMBOL;
@@ -578,6 +591,24 @@ ParseExprList(void)
     return count;
 }
 
+int
+ParseChar(Val *vp, String token)
+{
+  const Byte *ptr = StringGetPtr(token);
+  if (ptr[0] == '\'') return SyntaxError();
+  if (ptr[0] == '\\') {
+    /* if (StringGetLen(token) != 2) return SyntaxError(); */
+    if (ptr[1] == 'n') { *vp = '\n'; return TS_ERR_OK; }
+    if (ptr[1] == 't') { *vp = '\t'; return TS_ERR_OK; }
+    if (ptr[1] == 'r') { *vp = '\r'; return TS_ERR_OK; }
+    if (ptr[1] == '\\') { *vp = '\\'; return TS_ERR_OK; }
+    if (ptr[1] == '\'') { *vp = '\''; return TS_ERR_OK; }
+    return SyntaxError();
+  }
+  if (ptr[0] >= ' ' && ptr[0] <= '~') { *vp = ptr[0]; return TS_ERR_OK; }
+  return SyntaxError();
+}
+
 static int ParseString(String str, int saveStrings, int topLevel);
 
 // parse a function call
@@ -667,6 +698,10 @@ ParsePrimary(Val *vp)
         *vp = HexStringToNum(token);
         NextToken();
         return TS_ERR_OK;
+    } else if (c == TOK_CHAR) {
+      err = ParseChar(vp, token);
+      NextToken();
+      return err;
     } else if (c == TOK_VAR) {
         *vp = tokenVal;
         NextToken();
