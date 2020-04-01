@@ -16,6 +16,9 @@ print 0x123
 print 0xa
 print 0xFEED
 print 0x12abc
+print '0'
+print '\n'
+print '\''
 
 # now test strings
 print "x=", x
