@@ -47,7 +47,11 @@ runscript(const char *filename)
 #ifdef __propeller__
 static Val getcnt_fn()
 {
+#ifdef CNT
     return CNT;
+#else
+    return _cnt();
+#endif
 }
 static Val waitcnt_fn(Val when)
 {
@@ -104,8 +108,13 @@ REPL()
     int r;
     
     for(;;) {
+#ifdef __FLEXC__
+        printf("> ");
+        gets(buf);
+#else        
         printf("> "); fflush(stdout);
         fgets(buf, sizeof(buf), stdin);
+#endif        
         r = TinyScript_Run(buf, 1, 1);
         if (r != 0) {
             printf("error %d\n", r);

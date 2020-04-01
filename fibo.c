@@ -4,7 +4,7 @@
 #include "fibo.h"
 
 #include <propeller.h>
-#define ARENA_SIZE 2048
+#define ARENA_SIZE 4096
 
 int inchar() {
     return -1;
@@ -15,7 +15,11 @@ void outchar(int c) {
 
 static Val getcnt_fn()
 {
+#ifdef CNT
     return CNT;
+#else
+    return _cnt();
+#endif
 }
 static Val waitcnt_fn(Val when)
 {
@@ -24,6 +28,9 @@ static Val waitcnt_fn(Val when)
 }
 static Val pinout_fn(Val pin, Val onoff)
 {
+#if defined(__riscv) || defined(__propeller2__)
+    _pinw(pin, onoff);
+#else
     unsigned mask = 1<<pin;
     DIRA |= mask;
     if (onoff) {
@@ -31,13 +38,18 @@ static Val pinout_fn(Val pin, Val onoff)
     } else {
         OUTA &= ~mask;
     }
-    return OUTA;
+#endif    
+    return onoff;
 }
 static Val pinin_fn(Val pin)
 {
+#if defined(__riscv) || defined(__propeller2__)
+    return _pin(pin);
+#else
     unsigned mask=1<<pin;
     DIRA &= ~mask;
     return (INA & mask) ? 1 : 0;
+#endif
 }
 
 struct def {
@@ -58,7 +70,8 @@ main(int argc, char **argv)
 {
     int err;
     int i;
-    
+
+    printf("fibo test program\n");
     err = TinyScript_Init(memarena, sizeof(memarena));
     for (i = 0; fdefs[i].name; i++) {
         err |= TinyScript_Define(fdefs[i].name, BUILTIN, fdefs[i].val);
