@@ -12,7 +12,7 @@ of the workspace you give to the interpreter is up to you, although in
 practice it would be not very useful to use less than 2K of RAM. The
 processor stack is used as well, so it will need some space.
 
-tinyscript is copyright 2016 Total Spectrum Software Inc. and released
+tinyscript is copyright 2016-2020 Total Spectrum Software Inc. and released
 under the MIT license. See the COPYING file for details.
 
 The Language
@@ -68,7 +68,7 @@ to its caller.
     <printstmt> ::= "print" <printitem> [ "," <printitem>]+
     <printitem> ::= <string> | <expr>
 
-Expressions are built up from symbols, numbers (decimal or hex integeres), and
+Expressions are built up from symbols, numbers (decimal or hex integers), and
 operators. The operators have precedence levels 1-4. Level 0 of expressions is
 the most basic, consisting of numbers or variables optionally preceded by a
 unary operator:
