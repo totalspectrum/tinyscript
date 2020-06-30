@@ -5,7 +5,7 @@ CFLAGS=$(OPTS) -Wall
 OBJS=main.o tinyscript.o
 
 tstest: $(OBJS)
-	$(CC) $(CFLAGS) -o tstest $(OBJS)
+	$(CC) $(CFLAGS) -o tstest $(OBJS) -lreadline
 
 clean:
 	rm -f *.o *.elf

@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 #include "tinyscript.h"
 
 #ifdef __propeller__
@@ -104,21 +106,28 @@ struct def {
 void
 REPL()
 {
-    char buf[128];
     int r;
-    
+    read_history("tinyscript_history");
+
     for(;;) {
 #ifdef __FLEXC__
-        printf("> ");
-        gets(buf);
-#else        
-        printf("> "); fflush(stdout);
-        fgets(buf, sizeof(buf), stdin);
+      char buf[128];
+      printf("ts> ");
+      gets(buf);
+#else
+      char *buf = readline("ts> ");
+      if (!buf)
+        break;
+      add_history(buf);
+      write_history("tinyscript_history");
 #endif        
         r = TinyScript_Run(buf, 1, 1);
         if (r != 0) {
             printf("error %d\n", r);
         }
+#ifndef __FLEXC__
+        free(buf);
+#endif
     }
 }
 
