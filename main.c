@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include "tinyscript.h"
+#include "tinyscript_lib.h"
 
 #ifdef __propeller__
 #include <propeller.h>
@@ -15,6 +17,34 @@ int inchar() {
 }
 void outchar(int c) {
     putchar(c);
+}
+
+void * ts_malloc(Val size) {
+  return malloc(size);
+}
+
+void ts_free(void * pointer) {
+  free(pointer);
+}
+
+void _ts_printf(ts_list *format, ...) {
+  va_list args;
+  va_start(args, format);
+  char *format_string = ts_list_to_string(format);
+  vprintf(format_string, args);
+  ts_free(format_string);
+}
+
+void ts_printf(ts_list *format, Val a) {
+  _ts_printf(format, a);
+}
+
+void ts_printf_(ts_list *format, Val a, Val b) {
+  _ts_printf(format, a, b);
+}
+
+void ts_printf__(ts_list *format, Val a, Val b, Val c) {
+  _ts_printf(format, a, b, c);
 }
 
 #ifdef MAX_SCRIPT_SIZE
@@ -97,6 +127,9 @@ struct def {
     { "pinin",     (intptr_t)pinin_fn, 1 },
 #else
     { "dsqr",      (intptr_t)testfunc, 2 },
+    {"printf",    (intptr_t)ts_printf, 2},
+    {"printf_",   (intptr_t)ts_printf_, 3},
+    {"printf__",  (intptr_t)ts_printf__, 4},
 #endif
     { NULL, 0 }
 };
@@ -134,6 +167,7 @@ main(int argc, char **argv)
     for (i = 0; funcdefs[i].name; i++) {
         err |= TinyScript_Define(funcdefs[i].name, CFUNC(funcdefs[i].nargs), funcdefs[i].val);
     }
+    err |= ts_define_funcs();
     if (err != 0) {
         printf("Initialization of interpreter failed!\n");
         return 1;

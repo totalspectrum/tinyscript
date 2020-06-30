@@ -142,17 +142,39 @@ only one of these that is non-standard. It takes a single int as
 parameter and prints it as a character. This is the function the
 interpreter uses for output e.g. in the `print` statement.
 
+Just include tinyscript.{c,h} in your project to get started!
+
+There is an optional standard library in tinyscript_lib.{c,h} that adds
+`strlen` as a standard requirement and requires the user to define two 
+functions: `ts_malloc` and `ts_free`. These can be wrappers for `malloc`/`free`
+or perhaps `pvPortMalloc`/vPortFree` on FreeRTOS systems.
+
 Application Usage
 -----------------
 
 As mentioned above, the function `outchar` must be defined by the application
 to allow for printing. The following definition will work for standard C:
+
 ```
 #include <stdio.h>
 void outchar(int c) { putchar(c); }
 ```
+
 Embedded systems may want to provide a definition that uses the serial port
 or an attached display.
+
+For the optional standard library `ts_malloc` and `ts_free` must be defined by
+the application. The following definitions will work for standard C:
+
+```
+#include <stdlib.h>
+void * ts_malloc(Val size) {
+  return malloc(size);
+}
+void ts_free(void * pointer) {
+  free(pointer);
+}
+```
 
 The application must initialize the interpreter with `TinyScript_Init` before
 making any other calls. `TinyScript_Init` takes two parameters: the base
@@ -172,6 +194,10 @@ However, most C compiler calling conventions are such that any C function
 the Propeller). On the script side, the interpreter
 will supply 0 for any arguments the user does not supply, and will silently
 ignore arguments given beyond the fourth.
+
+In order to use the optional standard library, its functions need to be added
+to the Tinyscript context by calling `ts_define_funcs()`. Check the source code
+and tests for more information about what is included in the standard library.
 
 To run a script, use `TinyScript_Run(script, saveStrings, topLevel)`. Here
 `script` is a C string, `saveStrings` is 1 if any variable names created
