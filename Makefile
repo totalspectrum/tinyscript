@@ -2,7 +2,7 @@ OPTS=-g -Og
 CC=gcc
 CFLAGS=$(OPTS) -Wall
 
-OBJS=main.o tinyscript.o
+OBJS=main.o tinyscript.o tinyscript_lib.o
 
 tstest: $(OBJS)
 	$(CC) $(CFLAGS) -o tstest $(OBJS)
