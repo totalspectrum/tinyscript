@@ -206,3 +206,27 @@ if the space `script` is stored in may later be overwritten, e.g. in
 a REPL loop by new commands typed by the user. `topLevel` is 1 if the
 variables created by the script should be kept after it finishes.
 
+Standard Library
+-----------------
+The standard library is optional, and is found in the file `tinyscript_lib.c`. It must be initialized with `ts_define_funcs()` before use. Functions provided are:
+
+`not(x)`: return 1 if x == 0, 0 otherwise
+
+`bool(x)`: returns 0 if x == 0, 1 otherwise
+
+`list_new(n)`: returns a handle to a new list which may contain up to `n` elements
+
+`list_dup(x)`: duplicates the list `x`
+
+`list_free(x)`: frees a list
+
+`list_pop(x)`: removes the last element from list `x` and returns it; returns -1 if no elements have been added to the list
+
+`list_push(x, a)`: appends the value `a` to the list whose handle is `x`
+
+`list_get(x, i)`: retrieves the `i`th element of the list `x`, or -1 if there is no such element
+
+`list_set(x, i, a)`: sets the `i`th element of list `x` to `a`.
+
+`list_size(x)`: returns the current length of the list
+
