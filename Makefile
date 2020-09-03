@@ -1,11 +1,24 @@
+# define the library you're using for READLINE by selecting the
+# appropriate two lines
+
+# for GNU Readline
+READLINE=-lreadline
+READLINE_DEFS=-DREADLINE
+
+# for linenoise
+#READLINE=linenoise.o
+#READLINE_DEFS=-DLINENOISE
+
+# for neither, just leave both undefined
+
 OPTS=-g -Og
 CC=gcc
-CFLAGS=$(OPTS) -Wall
+CFLAGS=$(OPTS) $(READLINE_DEFS) -Wall
 
 OBJS=main.o tinyscript.o tinyscript_lib.o
 
-tstest: $(OBJS)
-	$(CC) $(CFLAGS) -o tstest $(OBJS)
+tstest: $(OBJS) $(READLINE)
+	$(CC) $(CFLAGS) -o tstest $(OBJS) $(READLINE)
 
 clean:
 	rm -f *.o *.elf

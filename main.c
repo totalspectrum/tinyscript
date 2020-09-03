@@ -1,6 +1,13 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#ifdef READLINE
+#include <readline/readline.h>
+#include <readline/history.h>
+#elif defined(LINENOISE)
+#include "linenoise.h"
+#endif
+
 #include "tinyscript.h"
 #include "tinyscript_lib.h"
 
@@ -137,21 +144,40 @@ struct def {
 void
 REPL()
 {
-    char buf[128];
     int r;
+    char *buf;
+    
+#if defined(READLINE)
+    read_history("tinyscript_history");
+#elif defined(LINENOISE)
+    linenoiseHistoryLoad("tinyscript_history");
+#endif
     
     for(;;) {
-#ifdef __FLEXC__
-        printf("> ");
-        gets(buf);
-#else        
+#if defined(READLINE)
+        buf = readline("ts> ");
+        if (!buf) break;
+        add_history(buf);
+        write_history("tinyscript_history");
+#elif defined(LINENOISE)        
+        buf = linenoise("ts> ");
+        if (!buf) break;
+        linenoiseHistoryAdd(buf);
+        linenoiseHistorySave("tinyscript_history");
+#else
+        static char sbuf[128];
+        
         printf("> "); fflush(stdout);
-        fgets(buf, sizeof(buf), stdin);
-#endif        
+        buf = fgets(sbuf, sizeof(sbuf), stdin);
+        if (!buf) break;
+#endif
         r = TinyScript_Run(buf, 1, 1);
         if (r != 0) {
             printf("error %d\n", r);
         }
+#if defined(READLINE) || defined(LINENOISE)
+        free(buf);
+#endif        
     }
 }
 
