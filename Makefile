@@ -2,8 +2,8 @@
 # appropriate two lines
 
 # for GNU Readline
-READLINE=-lreadline
-READLINE_DEFS=-DREADLINE
+#READLINE=-lreadline
+#READLINE_DEFS=-DREADLINE
 
 # for linenoise
 #READLINE=linenoise.o

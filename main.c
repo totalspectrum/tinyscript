@@ -167,7 +167,7 @@ REPL()
 #else
         static char sbuf[128];
         
-        printf("> "); fflush(stdout);
+        printf("ts> "); fflush(stdout);
         buf = fgets(sbuf, sizeof(sbuf), stdin);
         if (!buf) break;
 #endif
