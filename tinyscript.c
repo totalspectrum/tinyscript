@@ -29,10 +29,7 @@
 //
 // a very tiny scripting language
 //
-//#define DEBUG
-#ifdef DEBUG
-#include <stdio.h>
-#endif
+//#define TSDEBUG
 
 // comment this symbol out to save a little bit of space on
 // the error messages
@@ -445,10 +442,14 @@ doNextToken(int israw)
     } else {
         r = c;
     }
-#ifdef DEBUG
-    printf("Token[%c / %x] = ", r&0xff, r);
+#ifdef TSDEBUG
+    outcstr("Token[");
+    outchar(r&0xff);
+    outcstr(" / ");
+    PrintNumber(r);
+    outcstr("] = ");
     PrintString(token);
-    printf("\n");
+    outchar('\n');
 #endif
     curToken = r;
     return r;
