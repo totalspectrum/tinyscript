@@ -164,26 +164,55 @@ outcstr(const char *ptr)
     }
 }
 
+// return true if a character is in a string
+static int charin(int c, const char *str)
+{
+    while (*str) {
+        if (c == *str++) return 1;
+    }
+    return 0;
+}
+
 #ifdef VERBOSE_ERRORS
 //
 // some functions to print an error and return
 //
+static void ErrorAt() {
+    // skip leading white-space
+    const char* ptr = StringGetPtr(parseptr);
+    while (*ptr && charin(*ptr, " \t\r\n")) {
+        ptr++;
+    }
+    if (!*ptr) {
+        outcstr(" in last statement\n");
+    } else {
+        outcstr(" before: ");
+        // print until end of statement
+        while (*ptr && !charin(*ptr, ";\n")) {
+            outchar(*ptr);
+            ptr++;
+        }
+        outchar('\n');
+    }
+}
 static int SyntaxError() {
-    outcstr("syntax error before:");
-    PrintString(parseptr);
-    outchar('\n');
+    outcstr("syntax error");
+    ErrorAt();
     return TS_ERR_SYNTAX;
 }
 static int ArgMismatch() {
-    outcstr("argument mismatch\n");
+    outcstr("argument mismatch");
+    ErrorAt();
     return TS_ERR_BADARGS;
 }
 static int TooManyArgs() {
-    outcstr("too many arguments\n");
+    outcstr("too many arguments");
+    ErrorAt();
     return TS_ERR_TOOMANYARGS;
 }
 static int OutOfMem() {
-    outcstr("out of memory\n");
+    outcstr("out of memory");
+    ErrorAt();
     return TS_ERR_NOMEM;
 }
 static int UnknownSymbol() {
@@ -280,15 +309,6 @@ UngetChar()
     StringSetLen(&parseptr, StringGetLen(parseptr)+1);
     StringSetPtr(&parseptr, StringGetPtr(parseptr)-1);
     IgnoreLastChar();
-}
-
-// return true if a character is in a string
-static int charin(int c, const char *str)
-{
-    while (*str) {
-        if (c == *str++) return 1;
-    }
-    return 0;
 }
 
 // these appear in <ctypes.h> too, but
