@@ -54,6 +54,10 @@ static Sym *symptr;
 static Val *valptr;
 static String parseptr;  // acts as instruction pointer
 
+#ifdef VERBOSE_ERRORS
+static const char *script_buffer;
+#endif
+
 // arguments to functions
 static Val fArgs[MAX_BUILTIN_PARAMS];
 static Val fResult = 0;
@@ -178,22 +182,18 @@ static int charin(int c, const char *str)
 // some functions to print an error and return
 //
 static void ErrorAt() {
-    // skip leading white-space
     const char* ptr = StringGetPtr(parseptr);
-    while (*ptr && charin(*ptr, " \t\r\n")) {
-        ptr++;
+	// back up to beginning of statement
+    while (ptr > script_buffer && !charin(*(ptr - 1), ";\n")) {
+        ptr--;
     }
-    if (!*ptr) {
-        outcstr(" in last statement\n");
-    } else {
-        outcstr(" before: ");
-        // print until end of statement
-        while (*ptr && !charin(*ptr, ";\n")) {
-            outchar(*ptr);
-            ptr++;
-        }
-        outchar('\n');
-    }
+	outcstr(" in: ");
+	// print until end of statement
+	while (*ptr && !charin(*ptr, ";\n")) {
+		outchar(*ptr);
+		ptr++;
+	}
+	outchar('\n');
 }
 static int SyntaxError() {
     outcstr("syntax error");
@@ -1169,5 +1169,8 @@ TinyScript_Init(void *mem, int mem_size)
 int
 TinyScript_Run(const char *buf, int saveStrings, int topLevel)
 {
+#ifdef VERBOSE_ERRORS
+    script_buffer = buf;
+#endif
     return ParseString(Cstring(buf), saveStrings, topLevel);
 }
