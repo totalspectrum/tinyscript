@@ -296,7 +296,7 @@ static int charin(int c, const char *str)
 // drag in a table of character flags
 static int isspace(int c)
 {
-    return (c == ' ') || (c == '\t');
+    return (c == ' ') || (c == '\t') || (c == '\r');
 }
 
 static int isdigit(int c)
