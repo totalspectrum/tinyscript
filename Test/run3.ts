@@ -22,5 +22,17 @@ func in_if(x) {
   return 42
 }
 
+func inner(x) {
+  return 555
+}
+
+func outer(x) {
+  var y = inner(x)
+  return x + y
+}
+
 print in_if(8)
 print in_if(11)
+print outer(445)
+print outer(in_if(4))
+print in_if(outer(1))
