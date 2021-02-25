@@ -658,9 +658,9 @@ ParseFuncCall(Cfunc op, Val *vp, UserFunc *uf)
         for (i = 0; i < expectargs; i++) {
             DefineSym(uf->argName[i], INT, fArgs[i]);
         }
-		didReturn = 0;
+        didReturn = 0;
         err = ParseString(uf->body, 0, 0);
-		didReturn = 0;
+        didReturn = 0;
         *vp = fResult;
         symptr = savesymptr;
         return err;
@@ -958,7 +958,7 @@ ParseReturn()
     err = ParseExpr(&fResult);
     // terminate the script
     StringSetLen(&parseptr, 0);
-	didReturn = 1;
+    didReturn = 1;
     return err;
 }
 
