@@ -14,3 +14,13 @@ func g(x) {
 
 print g(2)
 print g(3)
+
+func in_if(x) {
+  if x < 10 {
+    return x
+  }
+  return 42
+}
+
+print in_if(8)
+print in_if(11)
