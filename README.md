@@ -9,10 +9,10 @@ work on any platform (e.g. testing is done on x86-64 Linux).
 On the propeller, the interpreter code needs about 3K of memory in CMM
 mode or 5K in LMM. On the x86-64 the interpreter code is 6K. The size
 of the workspace you give to the interpreter is up to you, although in
-practice it would be not very useful to use less than 2K of RAM. The
+practice it would not be very useful to use less than 2K of RAM. The
 processor stack is used as well, so it will need some space.
 
-tinyscript is copyright 2016-2020 Total Spectrum Software Inc. and released
+tinyscript is copyright 2016-2021 Total Spectrum Software Inc. and released
 under the MIT license. See the COPYING file for details.
 
 The Language
@@ -135,14 +135,35 @@ Interface to C
 Environment Requirements
 ------------------------
 
-The interpreter is quite self-contained; the only external functions
-it uses are `abort` (called if we run out of memory), `outchar`
-(called to print a single character), and `memcpy`. `outchar` is the
-only one of these that is non-standard. It takes a single int as
-parameter and prints it as a character. This is the function the
-interpreter uses for output e.g. in the `print` statement.
+The interpreter is quite self-contained. The functions needed to
+interface with it are `outchar` (called to print a single character),
+and `memcpy`. `outchar` is the only one of these that is
+non-standard. It takes a single int as parameter and prints it as a
+character. This is the function the interpreter uses for output
+e.g. in the `print` statement.
 
 Just include tinyscript.{c,h} in your project to get started!
+
+Configuration
+-------------
+
+Language configuration options are in the form of defines at the top
+of tinyscript.h:
+
+```
+VERBOSE_ERRORS    - gives better error messages (costs a tiny bit of space)
+SMALL_PTRS        - use 16 bits for pointers (for very small machines)
+```
+
+The demo app main.c has some configuration options in the Makefile:
+
+```
+READLINE          - use the GNU readline library for entering text
+LINENOISE         - use the linenoise.c library for entering text
+```
+
+Standard Library
+----------------
 
 There is an optional standard library in tinyscript_lib.{c,h} that adds
 `strlen` as a standard requirement and requires the user to define two 

@@ -3,6 +3,11 @@
 
 #include <stdint.h>
 
+// language configuration options
+
+// define VERBOSE_ERRORS to get nicer error messages at a tiny cost in space
+#define VERBOSE_ERRORS
+
 #ifdef __propeller__
 // define SMALL_PTRS to use 16 bits for pointers
 // useful for machines with <= 64KB of RAM
