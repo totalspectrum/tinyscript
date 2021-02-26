@@ -460,15 +460,15 @@ static int NextRawToken() { return doNextToken(1); }
 // push a number on the result stack
 // this stack grows down from the top of the arena
 
-void
+Val
 Push(Val x)
 {
     --valptr;
     if ((intptr_t)valptr < (intptr_t)symptr) {
-        // out of memory!
-        abort();
+        return OutOfMem();
     }
     *valptr = x;
+	return TS_ERR_OK;
 }
 
 // pop a number off the result stack
@@ -581,7 +581,10 @@ ParseExprList(void)
         if (err != TS_ERR_OK) {
             return err;
         }
-        Push(v);
+        err = Push(v);
+        if (err != TS_ERR_OK) {
+            return err;
+        }
         count++;
         c = curToken;
         if (c == ',') {
