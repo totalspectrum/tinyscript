@@ -65,6 +65,7 @@ static int tokenArgs; // number of arguments for this token
 static String token;  // the actual string representing the token
 static Val tokenVal;  // for symbolic tokens, the symbol's value
 static Sym *tokenSym;
+static int didReturn = 0;
 
 // compare two Strings for equality
 Val stringeq(String ai, String bi)
@@ -681,7 +682,9 @@ ParseFuncCall(Cfunc op, Val *vp, UserFunc *uf)
         for (i = 0; i < expectargs; i++) {
             DefineSym(uf->argName[i], INT, fArgs[i]);
         }
+        didReturn = 0;
         err = ParseString(uf->body, 0, 0);
+        didReturn = 0;
         *vp = fResult;
         symptr = savesymptr;
         return err;
@@ -979,6 +982,7 @@ ParseReturn()
     err = ParseExpr(&fResult);
     // terminate the script
     StringSetLen(&parseptr, 0);
+    didReturn = 1;
     return err;
 }
 
@@ -1011,6 +1015,16 @@ ParseStmt(int saveStrings)
     String name;
     Val val;
     int err = TS_ERR_OK;
+
+    if (didReturn)
+    {
+        do {
+            c = GetChar();
+        } while (c >= 0 && c != '\n' && c != ';' && c != '}');
+        UngetChar();
+        NextToken();
+        return TS_ERR_OK;
+    }
     
     c = curToken;
     
