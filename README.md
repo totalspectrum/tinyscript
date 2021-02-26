@@ -87,7 +87,7 @@ unary operator:
     <printableasciichar> ::= ' ' to '~' excluding ' and \
 
     <expr1> ::= <expr0> [<binop1> <expr0>]*
-    <binop1> ::= "*" | "/"
+    <binop1> ::= "*" | "/" | "%"
 
     <expr2> ::= <expr1> [<binop2> <expr2>]*
     <binop2> ::= "+" | "-"
@@ -102,7 +102,7 @@ unary operator:
 
 Builtin functions are defined by the runtime, as are operators. The ones
 listed above are merely the ones defined by default. Operators may use
-any of the characters `=<>+-*/&|^`. Note that any string of these characters
+any of the characters `=<>+-*/&|^%`. Note that any string of these characters
 is processed together, so for example `a*-b` is parsed as `a` `*-` `b`,
 which will cause a syntax error, rather than as `a*(-b)`. The latter may
 be achieved by putting a space between the `*` and the `-`.
@@ -110,6 +110,8 @@ be achieved by putting a space between the `*` and the `-`.
 Note that any operator may be used as a unary operator, and in this case
 `<op>x` is interpreted as `0 <op> x` for any operator `<op>`. This is useful
 for `+` and `-`, less so for other operators.
+
+`%` is the modulo operator, as in C.
 
 Variable Scope
 --------------
