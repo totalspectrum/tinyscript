@@ -363,7 +363,7 @@ GetSpan(int (*testfn)(int))
 }
 static int
 isoperator(int c) {
-    return charin(c, "+-/*=<>&|^");
+    return charin(c, "+-/*%=<>&|^");
 }
 
 static int
@@ -1105,6 +1105,7 @@ ParseString(String str, int saveStrings, int topLevel)
 //
 static Val prod(Val x, Val y) { return x*y; }
 static Val quot(Val x, Val y) { return x/y; }
+static Val mod(Val x, Val y) { return x%y; }
 static Val sum(Val x, Val y) { return x+y; }
 static Val diff(Val x, Val y) { return x-y; }
 static Val bitand(Val x, Val y) { return x&y; }
@@ -1135,6 +1136,7 @@ static struct def {
     // operators
     { "*",     BINOP(1), (intptr_t)prod },
     { "/",     BINOP(1), (intptr_t)quot },
+    { "%",     BINOP(1), (intptr_t)mod },
     { "+",     BINOP(2), (intptr_t)sum },
     { "-",     BINOP(2), (intptr_t)diff },
     { "&",     BINOP(3), (intptr_t)bitand },
