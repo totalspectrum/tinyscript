@@ -100,7 +100,6 @@ int TinyScript_Define(const char *name, int toktype, Val value);
 int TinyScript_Run(const char *s, int saveStrings, int topLevel);
 
 // provided by our caller
-extern int inchar(void);
 extern void outchar(int c);
 
 #endif
