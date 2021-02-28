@@ -7,11 +7,11 @@
 
 // define VERBOSE_ERRORS to get nicer error messages at a small cost in space
 // costs about 500 bytes on the Propeller
-//#define VERBOSE_ERRORS
+#define VERBOSE_ERRORS
 
 // define ARRAY_SUPPORT to get support for integer arrays
 // costs about 1K on the Propeller 
-//#define ARRAY_SUPPORT
+#define ARRAY_SUPPORT
 
 #ifdef __propeller__
 // define SMALL_PTRS to use 16 bits for pointers
