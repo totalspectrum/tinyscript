@@ -30,6 +30,7 @@ enum {
     TS_ERR_BADARGS = -4,
     TS_ERR_TOOMANYARGS = -5,
     TS_ERR_OUTOFBOUNDS = -6,
+	TS_ERR_STOPPED = -7,
     TS_ERR_OK_ELSE = 1, // special internal condition
 };
 
@@ -110,5 +111,10 @@ int TinyScript_Run(const char *s, int saveStrings, int topLevel);
 
 // provided by our caller
 extern void outchar(int c);
+
+// if an external function is provided, comment out the define, and uncomment the declaration
+#define TinyScript_Stop() 0
+//extern int TinyScript_Stop();
+
 
 #endif
