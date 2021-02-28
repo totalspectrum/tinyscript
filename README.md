@@ -176,7 +176,7 @@ Standard Library
 There is an optional standard library in tinyscript_lib.{c,h} that adds
 `strlen` as a standard requirement and requires the user to define two 
 functions: `ts_malloc` and `ts_free`. These can be wrappers for `malloc`/`free`
-or perhaps `pvPortMalloc`/vPortFree` on FreeRTOS systems.
+or perhaps `pvPortMalloc` / `vPortFree` on FreeRTOS systems.
 
 Application Usage
 -----------------
