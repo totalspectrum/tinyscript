@@ -8,6 +8,9 @@
 // define VERBOSE_ERRORS to get nicer error messages at a tiny cost in space
 #define VERBOSE_ERRORS
 
+// define ARRAY_SUPPORT to get support for integer arrays
+#define ARRAY_SUPPORT
+
 #ifdef __propeller__
 // define SMALL_PTRS to use 16 bits for pointers
 // useful for machines with <= 64KB of RAM
@@ -24,6 +27,7 @@ enum {
     TS_ERR_UNKNOWN_SYM = -3,
     TS_ERR_BADARGS = -4,
     TS_ERR_TOOMANYARGS = -5,
+    TS_ERR_OUTOFBOUNDS = -6,
     TS_ERR_OK_ELSE = 1, // special internal condition
 };
 
@@ -66,6 +70,9 @@ static inline void StringSetPtr(String *s, const char *ptr) { s->ptr_ = ptr; }
 #define STRING   0x1  // string
 #define OPERATOR 0x2  // operator; precedence in high 8 bits
 #define ARG      0x3  // argument; value is offset on stack
+#ifdef ARRAY_SUPPORT
+#define ARRAY    0x4  // integer array
+#endif
 #define BUILTIN  'B'  // builtin: number of operands in high 8 bits
 #define USRFUNC  'f'  // user defined a procedure; number of operands in high 8 bits
 #define TOK_BINOP 'o'

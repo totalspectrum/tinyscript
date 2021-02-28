@@ -1,0 +1,11 @@
+x: 0, 0, 0
+x: 1, 0, 0
+x: 1, 2, 3
+x: 4, 5, 6
+y: 12, 34, 56
+sum of y = 102
+
+the array length can be read but not changed
+x(-1) is 3
+out of bounds in: x(-1) = 20
+script error -6

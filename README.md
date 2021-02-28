@@ -21,7 +21,7 @@ The scripting language itself is pretty minimalistic. The grammar for it
 looks like:
 
     <program> ::= <stmt> | <stmt><sep><program>
-    <stmt> ::= <vardecl> | <funcdecl> |
+    <stmt> ::= <vardecl> | <arrdecl> | <funcdecl> |
                | <assignment> | <ifstmt>
                | <whilestmt> | <funccall>
                | <printstmt> | <returnstmt>
@@ -30,8 +30,9 @@ The statements in a program are separated by newlines or ';'.
 
 Either variables or functions may be declared.
 
-    <funcdecl> ::= "func" <symbol> "(" <varlist> ")" <string>
     <vardecl> ::= "var" <assignment>
+    <arrdecl> ::= "array" <symbol> "(" <number> ")"
+    <funcdecl> ::= "func" <symbol> "(" <varlist> ")" <string>
     <assignment> ::= <symbol> "=" <expr>
     <varlist> ::= <symbol> [ "," <symbol> ]+
     
@@ -39,6 +40,10 @@ Variables must always be given a value when declared. All variables
 simply hold 32 bit quantities, normally interpreted as an integer.
 The symbol in an assignment outside of a vardecl must already have
 been declared.
+
+Arrays are simple one dimensional arrays. Support for arrays does add
+a little bit of code, so they are optional (included if ARRAY_SUPPORT
+is defined in tinyscript.h).
 
 Functions point to a string. When a procedure is called, the string
 is interpreted as a script (so at that time it is parsed using the
@@ -155,6 +160,7 @@ of tinyscript.h:
 ```
 VERBOSE_ERRORS    - gives better error messages (costs a tiny bit of space)
 SMALL_PTRS        - use 16 bits for pointers (for very small machines)
+ARRAY_SUPPORT     - include support for integer arrays
 ```
 
 The demo app main.c has some configuration options in the Makefile:
@@ -252,4 +258,8 @@ The standard library is optional, and is found in the file `tinyscript_lib.c`. I
 `list_set(x, i, a)`: sets the `i`th element of list `x` to `a`.
 
 `list_size(x)`: returns the current length of the list
+
+Acknowledgements
+================
+I'd like to thank Mickey Delp and Daniel Landau for their contributions to tinyscript. Daniel's bug reports have been invaluable, and he contributed (among other things) the optional standard library, readline support, and hex support. Mickey contributed better error handling, the modulo operator, and optional array support.
 

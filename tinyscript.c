@@ -1,6 +1,6 @@
 /* Tinyscript interpreter
  *
- * Copyright 2016 Total Spectrum Software Inc.
+ * Copyright 2016-2021 Total Spectrum Software Inc.
  *
  * +--------------------------------------------------------------------
  * ¦  TERMS OF USE: MIT License
@@ -66,6 +66,12 @@ static String token;  // the actual string representing the token
 static Val tokenVal;  // for symbolic tokens, the symbol's value
 static Sym *tokenSym;
 static int didReturn = 0;
+
+#ifdef ARRAY_SUPPORT
+static int ParseArrayDef(int saveStrings);
+static int ParseArrayGet(Val *vp);
+static int ParseArraySet();
+#endif
 
 // compare two Strings for equality
 Val stringeq(String ai, String bi)
@@ -217,12 +223,22 @@ static int UnknownSymbol() {
     outcstr(": unknown symbol\n");
     return TS_ERR_UNKNOWN_SYM;
 }
+#ifdef ARRAY_SUPPORT
+static int OutOfBounds() {
+    outcstr("out of bounds");
+    ErrorAt();
+    return TS_ERR_OUTOFBOUNDS;
+}
+#endif
 #else
 #define SyntaxError() TS_ERR_SYNTAX
 #define ArgMismatch() TS_ERR_BADARGS
 #define TooManyArgs() TS_ERR_TOOMANYARGS
 #define OutOfMem()    TS_ERR_NOMEM
 #define UnknownSymbol() TS_ERR_UNKNOWN_SYM
+#ifdef ARRAY_SUPPORT
+#define OutOfBounds()   TS_ERR_OUTOFBOUNDS
+#endif
 #endif
 
 //
@@ -240,6 +256,10 @@ static int UnknownSymbol() {
 #define TOK_PRINT  'p'
 #define TOK_VAR    'v'
 #define TOK_VARDEF 'V'
+#ifdef ARRAY_SUPPORT
+#define TOK_ARY        'y'
+#define TOK_ARYDEF     'Y'
+#endif
 #define TOK_BUILTIN 'B'
 #define TOK_BINOP  'o'
 #define TOK_FUNCDEF 'F'
@@ -423,6 +443,11 @@ doNextToken(int israw)
             if (sym) {
                 r = sym->type & 0xff;
                 tokenArgs = (sym->type >> 8) & 0xff;
+#ifdef ARRAY_SUPPORT
+                if (r == ARRAY)
+                    r = TOK_ARY;
+                else
+#endif
                 if (r < '@')
                     r = TOK_VAR;
                 tokenVal = sym->value;
@@ -465,7 +490,7 @@ doNextToken(int israw)
     }
 #ifdef TSDEBUG
     outcstr("Token[");
-    outchar(r&0xff);
+    outchar(r & 0xff);
     outcstr(" / ");
     PrintNumber(r);
     outcstr("] = ");
@@ -733,6 +758,10 @@ ParsePrimary(Val *vp)
         *vp = tokenVal;
         NextToken();
         return TS_ERR_OK;
+#ifdef ARRAY_SUPPORT
+    } else if (c == TOK_ARY) {
+        return ParseArrayGet(vp);
+#endif
     } else if (c == TOK_BUILTIN) {
         Cfunc cop = (Cfunc)tokenVal;
         return ParseFuncCall(cop, vp, NULL);
@@ -947,6 +976,121 @@ ParseFuncDef(int saveStrings)
     return TS_ERR_OK;
 }
 
+#ifdef ARRAY_SUPPORT
+// assign a value or list of values to an array
+static int
+ArrayAssign(Val* ary, Val ix)
+{
+    int err;
+    Val val;
+    do {
+        if (ix < 0 || ix >= ary[0]) {
+            return OutOfBounds();
+        }
+        NextToken();
+        err = ParseExpr(&val);
+        if (err != TS_ERR_OK) {
+            return err;
+        }
+        ary[ix + 1] = val;
+        ix++;
+    } while (curToken == ',');
+    return TS_ERR_OK;
+}
+
+// handle defining an array
+static int
+ParseArrayDef(int saveStrings)
+{
+    String name;
+    int c;
+    int err;
+    Val len;
+
+    c = NextRawToken();
+    if (c != TOK_SYMBOL) {
+        return SyntaxError();
+    }
+    if (saveStrings) {
+        name = DupString(token);
+    } else {
+        name = token;
+    }
+    c = NextToken();
+    if (c != '(') {
+        return SyntaxError();
+    }
+    err = ParsePrimary(&len);
+    if (err != TS_ERR_OK) {
+        return err;
+    }
+    len++;
+    if ( (intptr_t)symptr >= (intptr_t)(valptr - len)) {        
+        return OutOfMem();
+    }
+    char *ary = stack_alloc(len * sizeof(Val));
+    if (!ary) {
+        return OutOfMem();
+    }
+    memset(ary, 0, len * sizeof(Val));
+    ((Val*)ary)[0] = len - 1;
+    tokenSym = DefineSym(name, ARRAY, (Val)ary);
+    if (!tokenSym) {
+        return TS_ERR_NOMEM;
+    }
+    if (StringGetPtr(token)[0] == '=' && StringGetLen(token) == 1) {
+        return ArrayAssign((Val*)ary, 0);
+    } else {
+        return TS_ERR_OK;
+    }
+}
+
+// handle setting an array value
+static int 
+ParseArraySet()
+{
+    int err;
+    Val ix = 0;
+    Val* ary = (Val*)tokenVal;
+    int c = NextToken();
+    if (c == '(')
+    {
+        err = ParsePrimary(&ix);    
+        if (err != TS_ERR_OK) {
+            return err;
+        }
+    }   
+    if (StringGetPtr(token)[0] != '=' || StringGetLen(token) != 1) {
+        return SyntaxError();
+    }
+    return ArrayAssign(ary, ix);
+}
+
+// handle getting an array value
+static int
+ParseArrayGet(Val *vp)
+{
+    Val* ary = (Val*)tokenVal;
+    int c = NextToken();
+    if (c == '(') {     
+        Val ix;
+        int err = ParsePrimary(&ix);
+        if (err != TS_ERR_OK) {     
+            return err;
+        }
+        if (ix < -1 || ix >= ary[0]) {
+            return OutOfBounds();
+        }
+        *vp = ary[ix + 1];
+    } else {
+        // if no parens, then return the pointer to the array
+        // needed for passing to C functions
+        *vp = (Val)ary;
+    }
+    return TS_ERR_OK;
+}
+#endif  // ARRAY
+
 // handle print statement
 static int
 ParsePrint()
@@ -1067,6 +1211,10 @@ ParseStmt(int saveStrings)
             return err;
         }
         s->value = val;
+#ifdef ARRAY_SUPPORT
+    } else if (c == TOK_ARY) {
+        err = ParseArraySet();
+#endif
     } else if (c == TOK_BUILTIN || c == USRFUNC) {
         err = ParsePrimary(&val);
         return err;
@@ -1147,6 +1295,9 @@ static struct def {
     { "var",   TOK_VARDEF, 0 },
     { "func",  TOK_FUNCDEF, (intptr_t)ParseFuncDef },
     { "return", TOK_RETURN, (intptr_t)ParseReturn },
+#ifdef ARRAY_SUPPORT
+    { "array", TOK_ARYDEF, (intptr_t)ParseArrayDef },
+#endif
     // operators
     { "*",     BINOP(1), (intptr_t)prod },
     { "/",     BINOP(1), (intptr_t)quot },
