@@ -29,11 +29,9 @@
 //
 // a very tiny scripting language
 //
-//#define TSDEBUG
 
-// comment this symbol out to save a little bit of space on
-// the error messages
-#define VERBOSE_ERRORS
+// define this to debug the interpreter itself; otherwise leave it out
+//#define TSDEBUG
 
 #define MAX_EXPR_LEVEL 5
 
