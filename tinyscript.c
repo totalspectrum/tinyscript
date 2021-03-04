@@ -361,7 +361,7 @@ static int isidpunct(int c)
 }
 static int isidentifier(int c)
 {
-    return isalpha(c) || isidpunct(c);
+    return isalpha(c) || isdigit(c) || isidpunct(c);
 }
 
 static int notquote(int c)
