@@ -380,13 +380,15 @@ GetSpan(int (*testfn)(int))
         UngetChar();
     }
 }
-static int
-isoperatorchar2(int c) {
-    return charin(c, "=<>");
-}
+
 static int
 isoperator(int c) {
     return charin(c, "+-!/*%=<>&|^");
+}
+
+static int
+isoperatorchar2(int c) {
+    return charin(c, "=<>");
 }
 
 static int
