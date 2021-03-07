@@ -1158,6 +1158,11 @@ ParseStmt(int saveStrings)
     Val val;
     int err = TS_ERR_OK;
 
+    if (TinyScript_Stop())
+    {
+        return TS_ERR_STOPPED;
+    }
+
     if (didReturn)
     {
         do {
