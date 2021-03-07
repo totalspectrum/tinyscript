@@ -19,6 +19,12 @@
 #define SMALL_PTRS
 #endif
 
+// Comment this out if you have provided a function to
+// check whether a running script should stop. This
+// function should return non-zero when if the script
+// should stop, 0 if not.
+#define TinyScript_Stop() (0)
+
 // errors
 // all the ParseXXX functions return 0 on success, a negative
 // error code otherwise
@@ -113,8 +119,8 @@ int TinyScript_Run(const char *s, int saveStrings, int topLevel);
 extern void outchar(int c);
 
 // if an external function is provided, comment out the define, and uncomment the declaration
-#define TinyScript_Stop() 0
-//extern int TinyScript_Stop();
-
+#ifndef TinyScript_Stop
+extern int TinyScript_Stop();
+#endif
 
 #endif

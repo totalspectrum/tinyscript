@@ -149,7 +149,10 @@ non-standard. It takes a single int as parameter and prints it as a
 character. This is the function the interpreter uses for output
 e.g. in the `print` statement.
 
-Just include tinyscript.{c,h} in your project to get started!
+Optionally you can provide a function TinyScript_Stop() to check whether
+a running script should stop. To do this, edit the tinyscript.h file
+to remove the default definition (0) for TinyScript_Stop().
+
 
 Configuration
 -------------
