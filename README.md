@@ -101,16 +101,15 @@ unary operator:
     <binop3> ::= "&" | "|" | "^" | "<<" | ">>"
 
     <expr4> ::= <expr3> [<binop4><expr4>]*
-    <binop4> ::= "==" | "<>" | ">" | "<" | ">=" | "<="
+    <binop4> ::= "=" | "<>" | ">" | "<" | ">=" | "<="
 
     <unaryop> ::= <binop1> | <binop2> | <binop3> | <binop4>
 
 Builtin functions are defined by the runtime, as are operators. The ones
 listed above are merely the ones defined by default. Operators may use
-any of the characters `=<>+-*/&|^%`. Note that any string of these characters
-is processed together, so for example `a*-b` is parsed as `a` `*-` `b`,
-which will cause a syntax error, rather than as `a*(-b)`. The latter may
-be achieved by putting a space between the `*` and the `-`.
+any of the characters `!=<>+-*/&|^%`. Any string of the characters
+`!=<>&|^` is processed together, but the operator characters `+-*/` may only
+appear on their own.
 
 Note that any operator may be used as a unary operator, and in this case
 `<op>x` is interpreted as `0 <op> x` for any operator `<op>`. This is useful

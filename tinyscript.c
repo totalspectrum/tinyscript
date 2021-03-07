@@ -388,7 +388,7 @@ isoperator(int c) {
 
 static int
 isoperatorchar2(int c) {
-    return charin(c, "=<>");
+    return charin(c, "=<>&|^");
 }
 
 static int
