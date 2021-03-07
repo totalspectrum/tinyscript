@@ -380,9 +380,15 @@ GetSpan(int (*testfn)(int))
         UngetChar();
     }
 }
+
 static int
 isoperator(int c) {
-    return charin(c, "+-/*%=<>&|^");
+    return charin(c, "+-!/*%=<>&|^");
+}
+
+static int
+isoperatorchar2(int c) {
+    return charin(c, "=<>");
 }
 
 static int
@@ -452,7 +458,7 @@ doNextToken(int israw)
             }
         }
     } else if (isoperator(c)) {
-        GetSpan(isoperator);
+        GetSpan(isoperatorchar2);
         tokenSym = sym = LookupSym(token);
         if (sym) {
             r = sym->type;
@@ -770,10 +776,9 @@ ParsePrimary(Val *vp)
         NextToken();
         return err;
     } else if ( (c & 0xff) == TOK_BINOP ) {
-        // binary operator
+        // unary operator
         Opfunc op = (Opfunc)tokenVal;
         Val v;
-        
         NextToken();
         err = ParseExpr(&v);
         if (err == TS_ERR_OK) {
@@ -1307,6 +1312,7 @@ static struct def {
     { "%",     BINOP(1), (intptr_t)mod },
     { "+",     BINOP(2), (intptr_t)sum },
     { "-",     BINOP(2), (intptr_t)diff },
+    { "!",     BINOP(2), (intptr_t)equals },
     { "&",     BINOP(3), (intptr_t)bitand },
     { "|",     BINOP(3), (intptr_t)bitor },
     { "^",     BINOP(3), (intptr_t)bitxor },
