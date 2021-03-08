@@ -1141,7 +1141,7 @@ ParseWhile()
 
 again:
     err = ParseIf();
-    if (err == TS_ERR_OK_ELSE) {
+    if (err == TS_ERR_OK_ELSE || didReturn) {
         return TS_ERR_OK;
     } else if (err == TS_ERR_OK) {
         parseptr = savepc;
