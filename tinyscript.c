@@ -876,51 +876,46 @@ static int ParseString(String str, int saveStrings, int topLevel);
 //
 static int ParseIf()
 {
-    String ifpart, elsepart;
+    String then;
     Val cond;
     int c;
     int err;
     
-    c = NextToken();
+    NextToken();
     err = ParseExpr(&cond);
     if (err != TS_ERR_OK) {
         return err;
     }
-    c = curToken;
-    if (c != TOK_STRING) {
+    if (curToken != TOK_STRING) {
         return SyntaxError();
     }
-    ifpart = token;
+    then = token;
     c = NextToken();
-    if (c == TOK_ELSE) {
+    if (cond) {
+        err = ParseString(then, 0, 0);
+		while (c == TOK_ELSEIF || c == TOK_ELSE) {
+			if (c == TOK_ELSEIF) {
+				while (c != '{') {
+					c = GetChar();
+					if (c < 0) {
+						return SyntaxError();
+					}
+				}
+				UngetChar();
+			}
+			NextToken();
+			if (curToken != TOK_STRING) {
+				return SyntaxError();
+			}
+			c = NextToken();
+		}
+    } else if (c == TOK_ELSE) {
         if (NextToken() != TOK_STRING) {
             return SyntaxError();
         }
-        elsepart = token;
+        then = token;
         NextToken();
-    }
-    if (cond) {
-        err = ParseString(ifpart, 0, 0);
-        if (c == TOK_ELSEIF) {
-            do {
-                if (c == TOK_ELSEIF) {
-                    while (c != '{') {
-                        c = GetChar();
-                        if (c < 0) {
-                            return SyntaxError();
-                        }
-                    }
-                    UngetChar();
-                }
-                NextToken();
-                if (curToken != TOK_STRING) {
-                    return SyntaxError();
-                }
-                c = NextToken();
-            } while (c == TOK_ELSEIF || c == TOK_ELSE);
-        }
-    } else if (c == TOK_ELSE) {
-        err = ParseString(elsepart, 0, 0);
+        err = ParseString(then, 0, 0);
     } else if (c == TOK_ELSEIF) {
         return ParseIf();
     }
