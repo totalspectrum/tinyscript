@@ -893,22 +893,22 @@ static int ParseIf()
     c = NextToken();
     if (cond) {
         err = ParseString(then, 0, 0);
-		while (c == TOK_ELSEIF || c == TOK_ELSE) {
-			if (c == TOK_ELSEIF) {
-				while (c != '{') {
-					c = GetChar();
-					if (c < 0) {
-						return SyntaxError();
-					}
-				}
-				UngetChar();
-			}
-			NextToken();
-			if (curToken != TOK_STRING) {
-				return SyntaxError();
-			}
-			c = NextToken();
-		}
+        while (c == TOK_ELSEIF || c == TOK_ELSE) {
+            if (c == TOK_ELSEIF) {
+                while (c != '{') {
+                    c = GetChar();
+                    if (c < 0) {
+                        return SyntaxError();
+                    }
+                }
+                UngetChar();
+            }
+            NextToken();
+            if (curToken != TOK_STRING) {
+                return SyntaxError();
+            }
+            c = NextToken();
+        }
     } else if (c == TOK_ELSE) {
         if (NextToken() != TOK_STRING) {
             return SyntaxError();
