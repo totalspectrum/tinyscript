@@ -880,16 +880,13 @@ static int ParseIf()
     Val cond;
     int c;
     int err;
-
+    
     c = NextToken();
     err = ParseExpr(&cond);
     if (err != TS_ERR_OK) {
         return err;
     }
     c = curToken;
-    if (c == '\n') {
-        c = NextToken();
-    }
     if (c != TOK_STRING) {
         return SyntaxError();
     }
