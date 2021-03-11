@@ -33,6 +33,8 @@
 // define this to debug the interpreter itself; otherwise leave it out
 //#define TSDEBUG
 
+#define PRINTTOKEN(t) {outcstr("Token['");outchar(t & 0xff);outcstr("' ");PrintNumber(t);outcstr("] = ");PrintString(token);outchar('\n');}
+
 #define MAX_EXPR_LEVEL 5
 
 #include <string.h>
@@ -125,7 +127,7 @@ PrintNumber(Val v)
     int digits = 0;
     int c;
     char buf[32];
-    
+
     if (v < 0) {
         outchar('-');
         x = -v;
@@ -185,17 +187,17 @@ static int charin(int c, const char *str)
 //
 static void ErrorAt() {
     const char* ptr = StringGetPtr(parseptr);
-	// back up to beginning of statement
+    // back up to beginning of statement
     while (ptr > script_buffer && !charin(*(ptr - 1), ";\n")) {
         ptr--;
     }
-	outcstr(" in: ");
-	// print until end of statement
-	while (*ptr && !charin(*ptr, ";\n")) {
-		outchar(*ptr);
-		ptr++;
-	}
-	outchar('\n');
+    outcstr(" in: ");
+    // print until end of statement
+    while (*ptr && !charin(*ptr, ";\n")) {
+        outchar(*ptr);
+        ptr++;
+    }
+    outchar('\n');
 }
 static int SyntaxError() {
     outcstr("syntax error");
@@ -250,6 +252,7 @@ static int OutOfBounds() {
 #define TOK_STRING 'S'
 #define TOK_IF     'i'
 #define TOK_ELSE   'e'
+#define TOK_ELSEIF 'l'
 #define TOK_WHILE  'w'
 #define TOK_PRINT  'p'
 #define TOK_VAR    'v'
@@ -397,7 +400,7 @@ doNextToken(int israw)
     int c;
     int r = -1;
     Sym *sym = NULL;
-    
+
     tokenSym = NULL;
     ResetToken();
     for(;;) {
@@ -519,7 +522,7 @@ Push(Val x)
         return OutOfMem();
     }
     *valptr = x;
-	return TS_ERR_OK;
+    return TS_ERR_OK;
 }
 
 // pop a number off the result stack
@@ -600,7 +603,7 @@ String
 Cstring(const char *str)
 {
     String x;
-    
+
     StringSetLen(&x, strlen(str));
     StringSetPtr(&x, str);
     return x;
@@ -626,7 +629,7 @@ ParseExprList(void)
     int count = 0;
     int c;
     Val v;
-    
+
     do {
         err = ParseExpr(&v);
         if (err != TS_ERR_OK) {
@@ -733,7 +736,7 @@ ParsePrimary(Val *vp)
 {
     int c;
     int err;
-    
+
     c = curToken;
     if (c == '(') {
         NextToken();
@@ -800,7 +803,7 @@ ParseExprLevel(int max_level, Val *vp)
     int c;
     Val lhs;
     Val rhs;
-    
+
     lhs = *vp;
     c = curToken;
     while ( (c & 0xff) == TOK_BINOP ) {
@@ -842,7 +845,7 @@ stack_alloc(int len)
 {
     int mask = sizeof(Val)-1;
     intptr_t base;
-    
+
     len = (len + mask) & ~mask;
     base = ((intptr_t)valptr) - len;
     if (base < (intptr_t)symptr) {
@@ -876,35 +879,55 @@ static int ParseString(String str, int saveStrings, int topLevel);
 static int ParseIf()
 {
     String ifpart, elsepart;
-    int haveelse = 0;
     Val cond;
     int c;
     int err;
-    
+
     c = NextToken();
     err = ParseExpr(&cond);
     if (err != TS_ERR_OK) {
         return err;
     }
     c = curToken;
+    if (c == '\n') {
+        c = NextToken();
+    }
     if (c != TOK_STRING) {
         return SyntaxError();
     }
     ifpart = token;
     c = NextToken();
     if (c == TOK_ELSE) {
-        c = NextToken();
-        if (c != TOK_STRING) {
+        if (NextToken() != TOK_STRING) {
             return SyntaxError();
         }
         elsepart = token;
-        haveelse = 1;
         NextToken();
     }
     if (cond) {
         err = ParseString(ifpart, 0, 0);
-    } else if (haveelse) {
+        if (c == TOK_ELSEIF) {
+            do {
+                if (c == TOK_ELSEIF) {
+                    while (c != '{') {
+                        c = GetChar();
+                        if (c < 0) {
+                            return SyntaxError();
+                        }
+                    }
+                    UngetChar();
+                }
+                NextToken();
+                if (curToken != TOK_STRING) {
+                    return SyntaxError();
+                }
+                c = NextToken();
+            } while (c == TOK_ELSEIF || c == TOK_ELSE);
+        }
+    } else if (c == TOK_ELSE) {
         err = ParseString(elsepart, 0, 0);
+    } else if (c == TOK_ELSEIF) {
+        return ParseIf();
     }
     if (err == TS_ERR_OK && !cond) err = TS_ERR_OK_ELSE;
     return err;
@@ -951,7 +974,7 @@ ParseFuncDef(int saveStrings)
     int c;
     int nargs = 0;
     UserFunc *uf;
-    
+
     c = NextRawToken(); // do not interpret the symbol
     if (c != TOK_SYMBOL) return SyntaxError();
     name = token;
@@ -1028,7 +1051,7 @@ ParseArrayDef(int saveStrings)
         return err;
     }
     len++;
-    if ( (intptr_t)symptr >= (intptr_t)(valptr - len)) {        
+    if ( (intptr_t)symptr >= (intptr_t)(valptr - len)) {
         return OutOfMem();
     }
     char *ary = stack_alloc(len * sizeof(Val));
@@ -1049,7 +1072,7 @@ ParseArrayDef(int saveStrings)
 }
 
 // handle setting an array value
-static int 
+static int
 ParseArraySet()
 {
     int err;
@@ -1058,11 +1081,11 @@ ParseArraySet()
     int c = NextToken();
     if (c == '(')
     {
-        err = ParsePrimary(&ix);    
+        err = ParsePrimary(&ix);
         if (err != TS_ERR_OK) {
             return err;
         }
-    }   
+    }
     if (StringGetPtr(token)[0] != '=' || StringGetLen(token) != 1) {
         return SyntaxError();
     }
@@ -1075,10 +1098,10 @@ ParseArrayGet(Val *vp)
 {
     Val* ary = (Val*)tokenVal;
     int c = NextToken();
-    if (c == '(') {     
+    if (c == '(') {
         Val ix;
         int err = ParsePrimary(&ix);
-        if (err != TS_ERR_OK) {     
+        if (err != TS_ERR_OK) {
             return err;
         }
         if (ix < -1 || ix >= ary[0]) {
@@ -1177,9 +1200,9 @@ ParseStmt(int saveStrings)
         NextToken();
         return TS_ERR_OK;
     }
-    
+
     c = curToken;
-    
+
     if (c == TOK_VARDEF) {
         // a definition var a=x
         c=NextRawToken(); // we want to get VAR_SYMBOL directly
@@ -1245,7 +1268,7 @@ ParseString(String str, int saveStrings, int topLevel)
     Sym* savesymptr = symptr;
     int c;
     int r;
-    
+
     parseptr = str;
     for(;;) {
         c = NextToken();
@@ -1298,6 +1321,7 @@ static struct def {
     // keywords
     { "if",    TOK_IF, (intptr_t)ParseIf },
     { "else",  TOK_ELSE, 0 },
+    { "elseif",TOK_ELSEIF, 0 },
     { "while", TOK_WHILE, (intptr_t)ParseWhile },
     { "print", TOK_PRINT, (intptr_t)ParsePrint },
     { "var",   TOK_VARDEF, 0 },
@@ -1333,7 +1357,7 @@ TinyScript_Init(void *mem, int mem_size)
 {
     int i;
     int err;
-    
+
     arena = (Byte *)mem;
     arena_size = mem_size;
     symptr = (Sym *)arena;
