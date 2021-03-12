@@ -1029,7 +1029,7 @@ ParseArrayDef(int saveStrings)
     }
 
     if (saveStrings) {
-        name = DupString(token);
+        name = DupString(name);
     }
     if (c != '(') {
         return SyntaxError();
