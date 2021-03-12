@@ -1,12 +1,3 @@
-#define PRINTTOKEN(r) {\
-    outcstr("Token['");\
-    outchar(r & 0xff);\
-    outcstr("' ");\
-    PrintNumber(r);\
-    outcstr("] = ");\
-    PrintString(token);\
-    outchar('\n');}
-
 /* Tinyscript interpreter
  *
  * Copyright 2016-2021 Total Spectrum Software Inc.
