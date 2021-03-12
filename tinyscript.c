@@ -1,3 +1,12 @@
+#define PRINTTOKEN(r) {\
+    outcstr("Token['");\
+    outchar(r & 0xff);\
+    outcstr("' ");\
+    PrintNumber(r);\
+    outcstr("] = ");\
+    PrintString(token);\
+    outchar('\n');}
+
 /* Tinyscript interpreter
  *
  * Copyright 2016-2021 Total Spectrum Software Inc.
@@ -626,7 +635,7 @@ ParseExprList(void)
     int count = 0;
     int c;
     Val v;
-    
+
     do {
         err = ParseExpr(&v);
         if (err != TS_ERR_OK) {
@@ -1014,12 +1023,23 @@ ParseArrayDef(int saveStrings)
     if (c != TOK_SYMBOL) {
         return SyntaxError();
     }
+    name = token;
+    c = NextToken();
+
+    if (c == ';' || c == '\n') {
+        Sym* sym = LookupSym(name);
+		// symbol exists, and its value points to a valid array area
+        if (sym && sym->value > (Val)valptr && sym->value + *((Val*)sym->value - 1) <= (Val)(arena + arena_size)) {
+            sym->type = ARRAY;
+            return TS_ERR_OK;
+        }
+        UngetChar();
+        return SyntaxError();
+    }
+
     if (saveStrings) {
         name = DupString(token);
-    } else {
-        name = token;
     }
-    c = NextToken();
     if (c != '(') {
         return SyntaxError();
     }
@@ -1039,7 +1059,7 @@ ParseArrayDef(int saveStrings)
     ((Val*)ary)[0] = len - 1;
     tokenSym = DefineSym(name, ARRAY, (Val)ary);
     if (!tokenSym) {
-        return TS_ERR_NOMEM;
+        return OutOfMem();
     }
     if (StringGetPtr(token)[0] == '=' && StringGetLen(token) == 1) {
         return ArrayAssign((Val*)ary, 0);
