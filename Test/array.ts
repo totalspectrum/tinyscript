@@ -42,11 +42,20 @@ print "sum of y = ", sum
 # array name with no parens returns the address (pointer)
 # this is exactly what we need to pass to C functions
 
+# print "address of x = ", x
+# don't actually print the address in this test becase it is always different
+
+
 # tinyscript cannot pass variables to script functions by reference, only value
 # so, passing an array to a script function just passes the address
 
-# print "address of x = ", x
-# don't actually print the address in this test becase it is always different
+func array_info(a){
+	# convert the variable to an array (raises an error if not a valid array)
+	array a
+	print "array len=", a(-1), ", first element=", a(0)
+}
+array_info(y)
+
 
 # example C function to consume a pointer to a tinyscript array
 # element zero is the length, which must not be changed
