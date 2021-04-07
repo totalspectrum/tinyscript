@@ -62,7 +62,7 @@ since the brackets nest. Also note that it is legal for newlines to
 appear in {} strings, but not in strings enclosed by ".
 
     <ifstmt> ::= "if" <expr> <string> [<elsepart>]
-    <elsepart> ::= "else" <string>
+    <elsepart> ::= "else" <string> | "elseif" <expr> [<elsepart>]
     <whilestmt> ::= "while" <expr> <string> [<elsepart>]
 
 As with functions, the strings in if and while statements are parsed
