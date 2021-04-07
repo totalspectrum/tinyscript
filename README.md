@@ -31,19 +31,25 @@ The statements in a program are separated by newlines or ';'.
 Either variables or functions may be declared.
 
     <vardecl> ::= "var" <assignment>
-    <arrdecl> ::= "array" <symbol> "(" <number> ")"
+    <arrdecl> ::= "array" <symbol> "(" <number> ")" | "array" <symbol>
     <funcdecl> ::= "func" <symbol> "(" <varlist> ")" <string>
     <assignment> ::= <symbol> "=" <expr>
     <varlist> ::= <symbol> [ "," <symbol> ]+
     
-Variables must always be given a value when declared. All variables
-simply hold 32 bit quantities, normally interpreted as an integer.
-The symbol in an assignment outside of a vardecl must already have
-been declared.
+Variables must always be given a value when declared (unless they are
+arrays). All non-array variables simply hold 32 bit quantities,
+normally interpreted as an integer.  The symbol in an assignment
+outside of a vardecl must already have been declared.
 
 Arrays are simple one dimensional arrays. Support for arrays does add
 a little bit of code, so they are optional (included if ARRAY_SUPPORT
-is defined in tinyscript.h).
+is defined in tinyscript.h). If the array declaration includes a size,
+then a new (uninitialized) array is created. If it does not include a
+size, then it must match one of the enclosing function's parameters,
+in which case that parameter is checked and must be an array.
+
+Array indices start at 0. Array index -1 is special and holds the
+length of the array,
 
 Functions point to a string. When a procedure is called, the string
 is interpreted as a script (so at that time it is parsed using the
