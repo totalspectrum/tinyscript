@@ -250,6 +250,7 @@ static int OutOfBounds() {
 #define TOK_STRING 'S'
 #define TOK_IF     'i'
 #define TOK_ELSE   'e'
+#define TOK_ELSEIF 'l'
 #define TOK_WHILE  'w'
 #define TOK_PRINT  'p'
 #define TOK_VAR    'v'
@@ -875,36 +876,48 @@ static int ParseString(String str, int saveStrings, int topLevel);
 //
 static int ParseIf()
 {
-    String ifpart, elsepart;
-    int haveelse = 0;
+    String then;
     Val cond;
     int c;
     int err;
     
-    c = NextToken();
+    NextToken();
     err = ParseExpr(&cond);
     if (err != TS_ERR_OK) {
         return err;
     }
-    c = curToken;
-    if (c != TOK_STRING) {
+    if (curToken != TOK_STRING) {
         return SyntaxError();
     }
-    ifpart = token;
+    then = token;
     c = NextToken();
-    if (c == TOK_ELSE) {
-        c = NextToken();
-        if (c != TOK_STRING) {
+    if (cond) {
+        err = ParseString(then, 0, 0);
+        while (c == TOK_ELSEIF || c == TOK_ELSE) {
+            if (c == TOK_ELSEIF) {
+                while (c != '{') {
+                    c = GetChar();
+                    if (c < 0) {
+                        return SyntaxError();
+                    }
+                }
+                UngetChar();
+            }
+            NextToken();
+            if (curToken != TOK_STRING) {
+                return SyntaxError();
+            }
+            c = NextToken();
+        }
+    } else if (c == TOK_ELSE) {
+        if (NextToken() != TOK_STRING) {
             return SyntaxError();
         }
-        elsepart = token;
-        haveelse = 1;
+        then = token;
         NextToken();
-    }
-    if (cond) {
-        err = ParseString(ifpart, 0, 0);
-    } else if (haveelse) {
-        err = ParseString(elsepart, 0, 0);
+        err = ParseString(then, 0, 0);
+    } else if (c == TOK_ELSEIF) {
+        return ParseIf();
     }
     if (err == TS_ERR_OK && !cond) err = TS_ERR_OK_ELSE;
     return err;
@@ -1309,6 +1322,7 @@ static struct def {
     // keywords
     { "if",    TOK_IF, (intptr_t)ParseIf },
     { "else",  TOK_ELSE, 0 },
+    { "elseif",TOK_ELSEIF, 0 },
     { "while", TOK_WHILE, (intptr_t)ParseWhile },
     { "print", TOK_PRINT, (intptr_t)ParsePrint },
     { "var",   TOK_VARDEF, 0 },
