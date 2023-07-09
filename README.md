@@ -141,6 +141,11 @@ func myfunc() {
 invoking `myfunc` will cause 3 to be printed, not 2 as in statically scoped
 languages.
 
+Variable Types
+--------------
+
+Basically the only type that may be held in variables is an integer. If array support is compiled in, then arrays of integers may be created. Some functions may treat arrays of integers as strings, but there is no native support for this, unfortunately.
+
 Interface to C
 ==============
 
